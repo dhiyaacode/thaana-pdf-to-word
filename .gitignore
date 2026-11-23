@@ -3,6 +3,7 @@ node_modules/
 dist/
 # never publish: documents, scans, student work, exam papers
 *.pdf
+!docs/*.pdf
 *.doc
 *.docx
 *.jpg
@@ -24,3 +25,6 @@ data/
 labels.tsv
 # reading model (decide before publishing)
 lang/divx.traineddata
+
+# macOS
+.DS_Store

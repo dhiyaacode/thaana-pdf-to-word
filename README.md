@@ -1,35 +1,45 @@
 # Thaana PDF to Word
 
-Free desktop app that turns Dhivehi (Thaana) PDFs, scans and photos into editable text, ready to paste into Word or save as a .docx.
+A free desktop app for teachers and anyone who works with Dhivehi. It turns **Dhivehi (Thaana) PDFs** into clean text you can paste into Word, or into a ready-made **.docx** file, without the scrambled letters and misplaced fili.
 
-**PDF with typed text (fast):** drop the PDF in. The app takes the text straight out of it with the letters in the right order, fixes misplaced fili where it is sure, and you can copy or save it as Word. No reading step.
-**Scans and photos:** use **Read text** (see below). Handwriting is not supported yet.
+Works on **Windows** and **Mac** (Intel and Apple chip). Everything runs on your own computer. Nothing is uploaded.
+
+> **Beta (v0.3).** Typed PDFs are the strong part. Reading scans, photos and newspapers is experimental and still improving. Handwriting is not supported yet.
+
+## What it does
+- **PDFs with typed text (made in Word and similar):** the app takes the letters straight out of the PDF and rebuilds each word in the right order, so copy-and-paste gives real Dhivehi. Tables become Word tables. Numbered lists stay lists.
+- **Save as Word:** right-to-left, justified, in Faruma or the font you pick.
+- **Scans and photos (experimental):** use *Read text*. Newspaper and magazine pages are split into columns and read right to left.
+
+## Download
+Go to the **Releases** page and download:
+- **Windows:** `Thaana-OCR-…-Windows.exe` (no install; double-click it)
+- **Mac:** the `.dmg` for your Mac
+
+The app is not code-signed, so your computer will warn you the first time. This is normal for free apps.
+- **Windows:** if you see "Windows protected your PC", click **More info ▸ Run anyway**.
+- **Mac:** open the .dmg, drag the app to Applications. The first time, go to **System Settings ▸ Privacy & Security** and click **Open Anyway**.
 
 ## Using it
-1. **Open scans / PDFs…** (or drag files into the window, or paste a screenshot with Ctrl+V / ⌘V).
-2. Click **Read text**.
-3. Check the text, especially the fili, and fix anything that's wrong.
-4. **Copy all** and paste into Word, or **Save as Word**. The file is right-to-left, justified, in Faruma (or the font you pick).
+See the **User Manual** in the `docs` folder (`docs/Thaana-PDF-to-Word-User-Manual.pdf`). In short:
+1. **Open scans / PDFs…** (or drag files in).
+2. For scans, click **Read text**. Typed PDFs appear straight away.
+3. Check the text, then **Copy all** or **Save as Word**.
 
-Tips
-- Scans at 200–300 dpi work best. Phone photos are fine if the page is flat, well lit and fills the frame.
-- Use ⟳ on a page to rotate it if the photo is sideways.
-- Tick **Page also has English text** only when a page mixes English and Dhivehi.
-- Untick **Join lines into paragraphs** to keep the page's original line breaks (good for lists and numbered questions).
-- Everything runs on your computer. Nothing is uploaded.
+## Known limits
+- Very old PDFs whose text was stored in legacy (non-Unicode) fonts can't be read directly and fall back to the weaker scan reader.
+- Text inside long wrapped table cells may be split across extra rows.
+- Always read through the result before using it for anything important.
 
-## First launch (the app is not signed)
-**Windows:** run `the Windows .exe`. If SmartScreen says "Windows protected your PC", click **More info → Run anyway**. No installation needed; you can keep the .exe on the Desktop.
+## Build it yourself
+Install Node.js (LTS), then in this folder run `npm install`, then:
+- Windows build: `npm run dist:win`
+- Mac build: double-click `build-mac.command`, or `npm run dist:mac-separate`
 
-**Mac:** open the .dmg and drag Thaana PDF to Word to Applications. The first time, macOS will block it. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to Thaana PDF to Word.
+The scan-reading model is not part of this source repository. Without it, PDF mode works fully and scan reading uses the basic reader.
 
-## Building the Mac version (on a Mac)
-1. Install Node.js (LTS) from https://nodejs.org.
-2. Double-click `build-mac.command` in this folder. If macOS won't run it, right-click → Open.
-3. The finished `.dmg` appears in the `dist` folder. It runs on both Intel and Apple-chip Macs.
+## Privacy
+No file, text or image leaves your computer. This repository must never contain PDFs, student scripts, exam papers or fonts (see `.gitignore`).
 
-## Accuracy (v0.1, on test pages)
-About 96% of characters and 73–77% of whole words come out correct on clean prints, scans, photocopies and phone photos. Most mistakes are a single wrong or missing fili, so read through before using the text.
-
-## Newspapers and magazines
-Scans and screenshots with several columns are split into blocks and read right to left, top to bottom. Pictures are skipped. Turn this off with “Newspaper / magazine columns” if a plain page reads wrongly.
+## Licence
+Apache License 2.0. See `LICENSE` and `NOTICE`.

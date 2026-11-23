@@ -1,0 +1,11 @@
+Thaana PDF to Word
+Copyright 2026 the Thaana PDF to Word authors. Licensed under the Apache License 2.0 (see LICENSE).
+
+This app includes or depends on the following open-source software:
+- Electron (MIT)                               https://www.electronjs.org
+- PDF.js / pdfjs-dist (Apache-2.0)             https://github.com/mozilla/pdf.js
+- Tesseract.js and Tesseract OCR (Apache-2.0)  https://github.com/naptha/tesseract.js
+- docx (MIT)                                   https://github.com/dolanmiu/docx
+- Noto Sans Thaana font (SIL Open Font License 1.1), Noto Project  https://fonts.google.com/noto
+
+Fonts such as Faruma are not included. When you save a Word file the app names the Dhivehi font you pick; Word uses the copy installed on your computer.
