@@ -1,0 +1,53 @@
+@font-face { font-family: 'NotoThaana'; src: url('fonts/NotoSansThaana-Regular.ttf'); }
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d2327; --muted: #6b7378; --line: #e2e0da;
+  --accent: #0b6e69; --accent-ink: #ffffff; --warn: #b45309;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--bg); display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; font-size: 16px; white-space: nowrap; }
+.brand .dv { font-family: 'NotoThaana'; color: var(--accent); margin-left: 6px; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+button { font: inherit; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.ghost { background: transparent; }
+.options { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.options label { display: flex; gap: 6px; align-items: center; }
+.options select, .options input[type=number] { font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; }
+.options input[type=number] { width: 56px; }
+.status { margin-left: auto; color: var(--ink); }
+.status.warn { color: var(--warn); }
+main { flex: 1; display: flex; min-height: 0; }
+.pages { width: 280px; overflow-y: auto; padding: 12px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.empty { margin: auto; text-align: center; color: var(--muted); line-height: 1.7; }
+.empty .big { font-size: 34px; }
+.page { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.page img { width: 100%; display: block; border-radius: 4px; background: #eee; }
+.page .row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 6px; font-size: 12px; color: var(--muted); }
+.page .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page .tools button { padding: 2px 7px; font-size: 12px; }
+.page.done { border-color: var(--accent); }
+.page.working { border-color: var(--warn); }
+.editor { flex: 1; display: flex; flex-direction: column; padding: 12px 16px; min-width: 0; }
+.progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+#bar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+textarea { flex: 1; resize: none; width: 100%; padding: 18px 22px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  font-family: 'Faruma', 'MV Faseyha', 'NotoThaana', 'MV Boli', sans-serif; font-size: 22px; line-height: 2; text-align: justify; }
+textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 6px; }
+body.dragging main { outline: 3px dashed var(--accent); outline-offset: -8px; }
+
+#labeler{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+#labeler[hidden]{display:none}
+.lbox{background:#fff;border-radius:12px;padding:18px 22px;width:min(900px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.lhead{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.lhelp{color:#555;font-size:13px;margin:6px 0 10px}
+.limgwrap{background:#fafafa;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center;overflow:auto}
+#limg{max-width:100%;max-height:200px}
+#ltext{width:100%;box-sizing:border-box;margin:12px 0;font-size:24px;padding:8px;font-family:Faruma,'NotoThaana',serif;border:1px solid #bbb;border-radius:8px}
+.lbtns{display:flex;gap:8px;justify-content:flex-end}

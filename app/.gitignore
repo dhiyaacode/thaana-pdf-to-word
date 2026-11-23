@@ -1,0 +1,26 @@
+# build output and installed packages
+node_modules/
+dist/
+# never publish: documents, scans, student work, exam papers
+*.pdf
+*.doc
+*.docx
+*.jpg
+*.jpeg
+*.png
+!build/icon.png
+!renderer/**/*.png
+*.tif
+*.tiff
+*.heic
+# fonts with unclear licences
+*.ttf
+*.otf
+!renderer/fonts/NotoSansThaana-Regular.ttf
+# handwriting labels and training data
+Thaana-handwriting-labels/
+train/
+data/
+labels.tsv
+# reading model (decide before publishing)
+lang/divx.traineddata

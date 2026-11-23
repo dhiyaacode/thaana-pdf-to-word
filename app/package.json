@@ -1,0 +1,60 @@
+{
+  "name": "thaana-pdf-to-word",
+  "productName": "Thaana PDF to Word",
+  "version": "0.3.0",
+  "description": "Turn scanned Dhivehi (Thaana) pages into editable text and Word files.",
+  "main": "main.js",
+  "author": "Thaana PDF to Word",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable --x64",
+    "dist:mac": "electron-builder --mac dmg --universal",
+    "dist:mac-separate": "electron-builder --mac dmg --arm64 --x64"
+  },
+  "dependencies": {
+    "docx": "^9.16.0",
+    "pdfjs-dist": "^6.5.438",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "mv.thaanaocr.app",
+    "productName": "Thaana PDF to Word",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "lang/**",
+      "build/icon.png",
+      "node_modules/**",
+      "!node_modules/@napi-rs/**"
+    ],
+    "asarUnpack": [
+      "lang/**",
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false,
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "artifactName": "Thaana-OCR-${version}-Mac-${arch}.${ext}"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "portable": {
+      "artifactName": "Thaana-OCR-${version}-Windows.exe"
+    }
+  }
+}

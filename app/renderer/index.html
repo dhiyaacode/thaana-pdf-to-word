@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; worker-src 'self' blob:">
+  <title>Thaana PDF to Word</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">Thaana PDF to Word <span class="dv">ތާނަ</span></div>
+    <div class="toolbar">
+      <button id="btnOpen" class="primary">Open scans / PDFs…</button>
+      <button id="btnRead" disabled>Read text</button>
+      <span class="sep"></span>
+      <button id="btnCopy" disabled>Copy all</button>
+      <button id="btnDocx" disabled>Save as Word</button>
+      <button id="btnTxt" disabled>Save as .txt</button>
+      <button id="btnLabel" disabled>Label handwriting…</button>
+      <button id="btnClear" class="ghost">Clear</button>
+    </div>
+  </header>
+
+  <section class="options">
+    <label><input type="checkbox" id="optPdfText" checked> Use the PDF's own text when it has some</label>
+    <label><input type="checkbox" id="optNoArabic" checked> Ignore Arabic text in PDFs</label>
+    <label><input type="checkbox" id="optEnhance" checked> Clean up photo / photocopy</label>
+    <label><input type="checkbox" id="optJoin" checked> Join lines into paragraphs</label>
+    <label><input type="checkbox" id="optColumns" checked> Newspaper / magazine columns</label>
+    <label><input type="checkbox" id="optEnglish"> Page also has English text</label>
+    <label>Word font
+      <select id="optFont">
+        <option>Faruma</option>
+        <option>MV Faseyha</option>
+        <option>MV Waheed</option>
+        <option>MV Boli</option>
+      </select>
+    </label>
+    <label>Size <input type="number" id="optSize" value="14" min="8" max="36" step="1"></label>
+    <span id="status" class="status">Drop scans, photos or PDFs anywhere in this window.</span>
+  </section>
+
+  <main>
+    <aside id="pages" class="pages">
+      <div class="empty" id="emptyHint">
+        <div class="big">⬇</div>
+        Drag &amp; drop images or PDFs here<br>or click <b>Open scans / PDFs…</b>
+      </div>
+    </aside>
+    <section class="editor">
+      <div class="progress"><div id="bar"></div></div>
+      <textarea id="text" dir="rtl" spellcheck="false" placeholder="ކިޔާލެވޭ ލިޔުން މިތަނުގައި ފެންނާނެ"></textarea>
+      <div class="foot"><span id="counts"></span><span class="hint">You can edit the text here before copying or saving.</span></div>
+    </section>
+  </main>
+
+  <div id="labeler" hidden>
+    <div class="lbox">
+      <div class="lhead"><b>Label handwriting</b> <span id="lprog"></span><button id="lclose" class="ghost">Done</button></div>
+      <p class="lhelp">Type exactly what the line says (Thaana keyboard), then press <b>Enter</b>. If the picture isn't a text line, press <b>Skip</b>.</p>
+      <div class="limgwrap"><img id="limg" alt=""></div>
+      <input id="ltext" dir="rtl" spellcheck="false" placeholder="ލިޔެފައިވާ ލިޔުން މިތަނަށް ޓައިޕްކުރައްވާ">
+      <div class="lbtns"><button id="lundo" class="ghost">Undo last</button><button id="lskip">Skip</button><button id="lsave" class="primary">Save &amp; next ⏎</button><button id="lfolder" class="ghost">Open saved folder</button></div>
+    </div>
+  </div>
+  <script type="module" src="renderer.js"></script>
+</body>
+</html>
