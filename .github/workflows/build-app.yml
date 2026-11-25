@@ -1,0 +1,48 @@
+# Builds the Tauri app for Windows and macOS (Apple chip and Intel) and attaches the
+# installers to a draft release. Run it from the Actions tab, or push a tag such as v0.4.0.
+name: Build app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ''
+          - os: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - os: macos-latest
+            args: '--target x86_64-apple-darwin'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm test
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+          releaseName: 'Thaana PDF to Word ${{ github.ref_type == ''tag'' && github.ref_name || format(''build {0}'', github.run_number) }}'
+          releaseDraft: true
+          prerelease: true
+          args: ${{ matrix.args }}

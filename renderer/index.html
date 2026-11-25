@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; worker-src 'self' blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost">
   <title>Thaana PDF to Word</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -63,6 +63,7 @@
       <div class="lbtns"><button id="lundo" class="ghost">Undo last</button><button id="lskip">Skip</button><button id="lsave" class="primary">Save &amp; next ⏎</button><button id="lfolder" class="ghost">Open saved folder</button></div>
     </div>
   </div>
+  <script src="bridge.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>

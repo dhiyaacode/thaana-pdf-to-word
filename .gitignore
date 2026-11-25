@@ -1,6 +1,9 @@
 # build output and installed packages
 node_modules/
 dist/
+renderer/vendor/
+src-tauri/target/
+src-tauri/gen/
 # never publish: documents, scans, student work, exam papers
 *.pdf
 !docs/Thaana-PDF-to-Word-User-Manual.pdf
@@ -10,6 +13,7 @@ dist/
 *.jpeg
 *.png
 !build/icon.png
+!src-tauri/icons/*.png
 !renderer/**/*.png
 *.tif
 *.tiff

@@ -1,5 +1,5 @@
-import * as pdfjsLib from '../node_modules/pdfjs-dist/build/pdf.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = '../node_modules/pdfjs-dist/build/pdf.worker.mjs';
+import * as pdfjsLib from './vendor/pdfjs/pdf.mjs';   // copied by scripts/vendor.mjs
+pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.mjs';
 import { pageGlyphs, rebuild } from './pdfglyphs.js';
 import { Repairer } from './repair.js';
 import { joinPdfLines, textLooksComplete, hasThaana, looksScanned } from './pdftext.js';

@@ -32,7 +32,22 @@ See the **User Manual** in the `docs` folder (`docs/Thaana-PDF-to-Word-User-Manu
 - With *Ignore Arabic text* on, lines that are mostly Arabic (verses, prayers) are left out. Arabic words inside a Dhivehi sentence are kept, without their vowel marks.
 - Always read through the result before using it for anything important.
 
-## Build it yourself
+## The new Rust version (Tauri)
+The app is moving from Electron to [Tauri](https://tauri.app): a Rust program that shows the same interface in the computer's own web view (WebView2 on Windows, WebKit on Mac). It works the same way, reads scans just as fast and gives the same results, but the download is much smaller: the Windows installer is about 9 MB instead of about 120 MB.
+
+- Files, dialogs, the clipboard, Word export and handwriting labels are handled in Rust (`src-tauri/src/`).
+- The interface (`renderer/`) is shared with the Electron version. `renderer/bridge.js` connects it to Rust.
+- Reading scans uses the same Tesseract engine and models, running inside the web view.
+
+To build it you need Node.js (LTS) and Rust (https://rustup.rs). Then run:
+- `npm install`
+- `npm run app:dev` to run it
+- `npm run app:build` to build it. The Windows installer ends up in `src-tauri/target/release/bundle/nsis/`.
+- `npm run test:tauri` to test the real app end to end.
+
+Mac builds are made by GitHub Actions (`.github/workflows/build-app.yml`, run it from the Actions tab or push a `v…` tag). The app is not code-signed, so the first-launch steps above still apply.
+
+## Build it yourself (Electron version)
 Install Node.js (LTS), then in this folder run `npm install`, then:
 - Windows build: `npm run dist:win`
 - Mac build: double-click `build-mac.command`, or `npm run dist:mac-separate`
