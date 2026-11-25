@@ -37,6 +37,7 @@ jobs:
           workspaces: src-tauri -> target
       - run: npm ci
       - run: npm test
+      - run: cargo test --manifest-path crates/thaana-core/Cargo.toml
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

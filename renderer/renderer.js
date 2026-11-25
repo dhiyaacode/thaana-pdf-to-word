@@ -42,14 +42,27 @@ async function addFile({ name, data, bytes, ext }) {
   baseName = name.replace(/\.[^.]+$/, '');
   if (!bytes) bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
   if (ext === '.pdf') {
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
     const useText = $('optPdfText').checked;
+    // In the Tauri app the text is read in Rust (crates/thaana-core). It gives the same result as
+    // the JavaScript reader below, which stays as the fallback (and is used in Electron).
+    let fromRust = null;
+    if (useText && window.ocr.readPdf) {
+      setStatus(`Opening ${name}…`);
+      try { fromRust = await window.ocr.readPdf(bytes, { dropArabic: $('optNoArabic').checked, join: $('optJoin').checked }); }
+      catch (e) { console.warn('Rust PDF reader failed, using the JavaScript one:', e); }
+    }
+    document.body.dataset.pdfReader = fromRust ? 'rust' : 'js';   // which reader ran (shown to tests)
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;   // pages are still drawn with pdf.js
+    if (fromRust && fromRust.length !== pdf.numPages) fromRust = null;
     let fromText = 0; const mine = [];
     for (let p = 1; p <= pdf.numPages; p++) {
       setStatus(`Opening ${name} — page ${p} of ${pdf.numPages}…`);
       const page = await pdf.getPage(p);
       let txt = '', incomplete = false, scanned = false;
-      if (useText) {
+      if (fromRust) {
+        const r = fromRust[p - 1];
+        txt = r.kind === 'text' ? r.text : ''; incomplete = r.kind === 'damaged'; scanned = r.kind === 'scan';
+      } else if (useText) {
         try {
           const found = await pageGlyphs(pdfjsLib, page);
           const lines = rebuild(found, { dropArabic: $('optNoArabic').checked });

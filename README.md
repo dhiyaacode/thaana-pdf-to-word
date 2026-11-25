@@ -37,13 +37,14 @@ The app is moving from Electron to [Tauri](https://tauri.app): a Rust program th
 
 - Files, dialogs, the clipboard, Word export and handwriting labels are handled in Rust (`src-tauri/src/`).
 - The interface (`renderer/`) is shared with the Electron version. `renderer/bridge.js` connects it to Rust.
+- Text is taken out of typed PDFs in Rust (`crates/thaana-core`): a port of the JavaScript reader that gives exactly the same result (`npm run test:parity` compares the two on every page) and is about 3 times faster. If it ever fails on a file, the app falls back to the JavaScript reader.
 - Reading scans uses the same Tesseract engine and models, running inside the web view.
 
 To build it you need Node.js (LTS) and Rust (https://rustup.rs). Then run:
 - `npm install`
 - `npm run app:dev` to run it
 - `npm run app:build` to build it. The Windows installer ends up in `src-tauri/target/release/bundle/nsis/`.
-- `npm run test:tauri` to test the real app end to end.
+- `npm run test:tauri` to test the real app end to end, `npm run test:core` for the Rust reader's own tests, and `npm run test:parity` to compare the Rust and JavaScript readers.
 
 Mac builds are made by GitHub Actions (`.github/workflows/build-app.yml`, run it from the Actions tab or push a `v…` tag). The app is not code-signed, so the first-launch steps above still apply.
 

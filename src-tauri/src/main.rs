@@ -9,7 +9,7 @@ mod smoke;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Write, path::PathBuf};
+use std::{fs, io::Write, path::PathBuf, sync::OnceLock};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -164,6 +164,28 @@ fn label_count(app: AppHandle) -> usize {
     label_dir(&app).ok().and_then(|d| fs::read_to_string(d.join("labels.tsv")).ok()).map(|s| s.lines().filter(|l| !l.is_empty()).count()).unwrap_or(0)
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct ReadPdfOptions {
+    drop_arabic: bool,
+    join: bool,
+}
+
+/// Reads the text of every page of a PDF (crates/thaana-core). The PDF comes as the raw request
+/// body; the options as JSON in the `x-options` header.
+#[tauri::command]
+async fn pdf_read(request: tauri::ipc::Request<'_>) -> Res<Vec<thaana_core::Page>> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("expected the PDF as raw bytes".into()) };
+    let opts: ReadPdfOptions = request.headers().get("x-options").and_then(|v| v.to_str().ok()).and_then(|v| serde_json::from_str(v).ok()).unwrap_or_default();
+    let bytes = bytes.clone();
+    static READER: OnceLock<thaana_core::Reader> = OnceLock::new(); // loads the word list once
+    tauri::async_runtime::spawn_blocking(move || {
+        READER.get_or_init(thaana_core::Reader::new).read(&bytes, thaana_core::ReadOptions { drop_arabic: opts.drop_arabic, join: opts.join })
+    })
+    .await
+    .map_err(err)?
+}
+
 #[tauri::command]
 fn app_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
@@ -173,11 +195,11 @@ fn main() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init());
     #[cfg(not(feature = "smoke"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version
+        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read
     ]);
     #[cfg(feature = "smoke")]
     let builder = smoke::install(builder.invoke_handler(tauri::generate_handler![
-        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version,
+        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read,
         smoke::smoke_log, smoke::smoke_read, smoke::smoke_exit
     ]));
     builder.run(tauri::generate_context!()).expect("error while running Thaana PDF to Word");

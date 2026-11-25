@@ -26,6 +26,7 @@
 
     await drop(fixtures + '/typed.pdf');
     let t = text();
+    await check('PDF text read in Rust (crates/thaana-core)', document.body.dataset.pdfReader === 'rust', document.body.dataset.pdfReader);
     await check('typed.pdf: paragraph text with all vowel signs', t.includes(spec.paragraphs[0]), t.slice(0, 300));
     await check('typed.pdf: table rows kept as rows', spec.table.every((r) => t.split('\n').includes(r.join('\t'))), t);
 

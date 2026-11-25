@@ -84,6 +84,8 @@
     saveDocx: (opts) => invoke('save_docx', { opts }),
     saveTxt: (opts) => invoke('save_txt', { opts }),
     openFiles: () => invoke('open_files'),
+    // Text of every page of a PDF, read in Rust (crates/thaana-core): [{ kind, text }, ...]
+    readPdf: (bytes, opts) => invoke('pdf_read', bytes, { headers: { 'x-options': JSON.stringify(opts) } }),
     readWords: async () => { try { return await (await fetch(base + 'lang/dhivehi-words.txt')).text(); } catch { return ''; } },
     labelSave: (o) => invoke('label_save', { o }),
     labelUndo: (id) => invoke('label_undo', { id }),

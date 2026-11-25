@@ -3,6 +3,7 @@ node_modules/
 dist/
 renderer/vendor/
 src-tauri/target/
+crates/*/target/
 src-tauri/gen/
 # never publish: documents, scans, student work, exam papers
 *.pdf
