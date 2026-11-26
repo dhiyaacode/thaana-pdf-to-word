@@ -41,6 +41,7 @@
     t = text();
     const ocr = t.split('\n\n').slice(1).join('\n');
     await check('Read text (Tesseract in the web view): finished', done && status().startsWith('Done'), status());
+    await check('Scan clean-up ran in Rust (crates/thaana-core)', document.body.dataset.scanPrep === 'rust', document.body.dataset.scanPrep);
     await check('Read text: scanned page read into Thaana', (ocr.match(/[\u0780-\u07B1]/g) || []).length > 200, ocr.slice(0, 300));
 
     for (const f of extra) {

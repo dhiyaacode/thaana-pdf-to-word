@@ -5,6 +5,7 @@
 pub mod layout;
 pub mod pdf;
 pub mod repair;
+pub mod scan;
 pub mod text;
 
 use layout::Options;

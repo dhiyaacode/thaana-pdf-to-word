@@ -163,14 +163,18 @@ function prepare(page, enhance) {
       return { bl, bi, bw, bh, sub, own: findLines(sub, bw, bh, thr) };
     }).filter(Boolean);
     // A block of one or two lines cannot show its own line spacing (it would cut the vowel-sign rows
-    // off as separate lines). With real columns side by side, use the tallest block's spacing;
-    // otherwise the blocks are stacked in one column and the whole page shows the spacing best.
-    const tall = subs.reduce((a, s) => (!a || s.bh > a.bh ? s : a), null);
-    const sideBySide = subs.some((a) => subs.some((b) => a !== b && a.bl.t < b.bl.b && b.bl.t < a.bl.b && (a.bl.r <= b.bl.l || b.bl.r <= a.bl.l)));
-    const ref = sideBySide && tall ? tall.own.pitch : findLines(g, w, h, thr).pitch;
+    // off as separate lines), and a picture block shows a meaningless one. A text line spacing is
+    // 1.5 to 6 letter heights: take the median of the blocks whose own spacing is like that (and that
+    // are tall enough to show it). If there are none, the blocks are lines stacked in one column and
+    // the whole page shows the spacing best.
+    const L = blocks.letter || 15;
+    const plausible = (s) => s.own.pitch >= 1.5 * L && s.own.pitch <= 6 * L && s.bh >= 2.5 * s.own.pitch;
+    const good = subs.filter(plausible).map((s) => s.own.pitch).sort((a, b) => a - b);
+    const ref = good.length ? good[good.length >> 1] : findLines(g, w, h, thr).pitch;
     const boxes = [], lines = [], blk = []; let pitch = 0;
-    subs.forEach(({ bl, bi, bw, bh, sub, own }) => {
-      const r = bh >= 4 * ref ? own : findLines(sub, bw, bh, thr, ref);
+    subs.forEach((s) => {
+      const { bl, bi, bw, bh, sub, own } = s;
+      const r = bh >= 4 * ref && plausible(s) ? own : findLines(sub, bw, bh, thr, ref);
       pitch = pitch || r.pitch;
       r.boxes.forEach((b) => { lines.push(cropToPng(sub, bw, b, r.pitch)); boxes.push({ l: b.l + bl.l, t: b.t + bl.t, r: b.r + bl.l, b: b.b + bl.t }); blk.push(bi); });
     });
@@ -179,6 +183,22 @@ function prepare(page, enhance) {
   const { boxes, pitch } = findLines(g, w, h, thr);
   const lines = boxes.map((b) => cropToPng(g, w, b, pitch));
   return { lines, boxes, pitch, skew };
+}
+
+// In the Tauri app the clean-up and line finding run in Rust (same results for the line-finding
+// arithmetic as the JavaScript above, which stays as the fallback and is used in Electron).
+const pixels = (page) => page.canvas.getContext('2d').getImageData(0, 0, page.canvas.width, page.canvas.height).data;
+async function prepareAny(page, enhance) {
+  if (window.ocr.prepareScan) {
+    try {
+      const c = page.canvas;
+      const r = await window.ocr.prepareScan(pixels(page), { w: c.width, h: c.height, rotation: page.rotation, enhance, columns: !!($('optColumns') && $('optColumns').checked) });
+      document.body.dataset.scanPrep = 'rust';
+      return r;
+    } catch (e) { console.warn('Rust scan clean-up failed, using the JavaScript one:', e); }
+  }
+  document.body.dataset.scanPrep = 'js';
+  return prepare(page, enhance);
 }
 
 /* ---------- OCR ---------- */
@@ -208,6 +228,13 @@ async function readAll() {
   pageCount = pages.length;
   const out = [];
   const t0 = performance.now();
+  // With the Rust clean-up, the next page is prepared while the reader works on this one.
+  const ahead = new Map();
+  const prepareAhead = (from) => {
+    if (!window.ocr.prepareScan) return;
+    const i = pages.findIndex((p, k) => k > from && !p.fromPdf);
+    if (i >= 0 && !ahead.has(i)) ahead.set(i, prepareAny(pages[i], enhance));
+  };
   try {
     for (pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
@@ -215,7 +242,9 @@ async function readAll() {
       page.el.className = 'page working';
       setStatus(`Finding text lines on page ${pageIndex + 1} of ${pages.length}…`);
       await new Promise((r) => setTimeout(r, 30));
-      const prep = prepare(page, enhance);
+      const prep = await (ahead.get(pageIndex) || prepareAny(page, enhance));
+      ahead.delete(pageIndex);
+      prepareAhead(pageIndex);
       if (!prep.lines.length) { page.el.className = 'page'; out.push(''); continue; }
       setStatus(pageIndex === 0 && !window.__warm ? 'Starting the reader (first time takes a few seconds)…' : `Reading page ${pageIndex + 1} of ${pages.length} (${prep.lines.length} lines)…`);
       const results = await window.ocr.recognizeLines(prep.lines, english);
@@ -275,6 +304,13 @@ async function startLabeling() {
   await new Promise((r) => setTimeout(r, 30));
   L.queue = [];
   for (const page of pages.filter((p) => !p.fromPdf)) {
+    if (window.ocr.prepareLabel) {
+      try {
+        const c = page.canvas, r = await window.ocr.prepareLabel(pixels(page), { w: c.width, h: c.height, rotation: page.rotation });
+        r.lines.forEach((l) => L.queue.push({ pngOrig: l.orig, show: 'data:image/png;base64,' + l.show, pitch: Math.round(r.pitch), page: page.name }));
+        continue;
+      } catch (e) { console.warn('Rust labelling clean-up failed, using the JavaScript one:', e); }
+    }
     const pr = prepareLabel(page);
     pr.boxes.forEach((b) => L.queue.push({ pngOrig: crop(pr.g, pr.w, b).toDataURL('image/png').split(',')[1], show: crop(pr.gc, pr.w, b).toDataURL('image/png'), pitch: Math.round(pr.pitch), page: page.name }));
   }

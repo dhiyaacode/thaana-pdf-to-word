@@ -4305,6 +4305,7 @@ name = "thaana-core"
 version = "0.1.0"
 dependencies = [
  "lopdf",
+ "png",
  "serde",
  "serde_json",
 ]

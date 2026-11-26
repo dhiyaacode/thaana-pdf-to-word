@@ -186,6 +186,68 @@ async fn pdf_read(request: tauri::ipc::Request<'_>) -> Res<Vec<thaana_core::Page
     .map_err(err)?
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ScanOptions {
+    w: usize,
+    h: usize,
+    #[serde(default)]
+    rotation: i32,
+    #[serde(default)]
+    enhance: bool,
+    #[serde(default)]
+    columns: bool,
+}
+
+/// The page's RGBA pixels (raw request body) and the options (`x-options` header).
+fn scan_input(request: &tauri::ipc::Request<'_>) -> Res<(Vec<u8>, ScanOptions)> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("expected the page pixels as raw bytes".into()) };
+    let opts: ScanOptions = request.headers().get("x-options").and_then(|v| v.to_str().ok()).and_then(|v| serde_json::from_str(v).ok()).ok_or("missing scan options")?;
+    if opts.w == 0 || opts.h == 0 || bytes.len() < opts.w * opts.h * 4 {
+        return Err("page size does not match the pixels".into());
+    }
+    Ok((bytes.clone(), opts))
+}
+
+#[derive(Serialize)]
+struct ScanResult {
+    lines: Vec<String>, // base64 PNG per text line
+    boxes: Vec<thaana_core::scan::LineBox>,
+    pitch: f64,
+    skew: f64,
+    blk: Option<Vec<usize>>,
+}
+
+/// Cleans up a scanned page and cuts it into text lines (crates/thaana-core/src/scan.rs).
+#[tauri::command]
+async fn scan_prepare(request: tauri::ipc::Request<'_>) -> Res<ScanResult> {
+    let (rgba, o) = scan_input(&request)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = thaana_core::scan::prepare(&rgba, o.w, o.h, o.rotation, o.enhance, o.columns);
+        ScanResult { lines: p.lines.iter().map(|l| B64.encode(l)).collect(), boxes: p.boxes, pitch: p.pitch, skew: p.skew, blk: p.blk }
+    })
+    .await
+    .map_err(err)
+}
+
+#[derive(Serialize)]
+struct LabelLine {
+    orig: String, // base64 PNG of the line as scanned
+    show: String, // base64 PNG with notebook ruling removed
+}
+
+/// Text lines of a handwritten page for the labeller.
+#[tauri::command]
+async fn scan_prepare_label(request: tauri::ipc::Request<'_>) -> Res<(Vec<LabelLine>, f64)> {
+    let (rgba, o) = scan_input(&request)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let (lines, pitch) = thaana_core::scan::prepare_label(&rgba, o.w, o.h, o.rotation);
+        (lines.into_iter().map(|(a, b)| LabelLine { orig: B64.encode(a), show: B64.encode(b) }).collect(), pitch)
+    })
+    .await
+    .map_err(err)
+}
+
 #[tauri::command]
 fn app_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
@@ -195,11 +257,11 @@ fn main() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init());
     #[cfg(not(feature = "smoke"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read
+        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read, scan_prepare, scan_prepare_label
     ]);
     #[cfg(feature = "smoke")]
     let builder = smoke::install(builder.invoke_handler(tauri::generate_handler![
-        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read,
+        open_files, save_docx, save_txt, copy_text, label_save, label_undo, label_show, label_count, app_version, pdf_read, scan_prepare, scan_prepare_label,
         smoke::smoke_log, smoke::smoke_read, smoke::smoke_exit
     ]));
     builder.run(tauri::generate_context!()).expect("error while running Thaana PDF to Word");

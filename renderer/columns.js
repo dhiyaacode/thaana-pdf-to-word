@@ -1,5 +1,6 @@
 // Column / block analysis for newspapers and magazines (XY-cut), right-to-left reading order.
 // findBlocks(g, w, h, thr) -> [{l,t,r,b,kind}] in reading order. kind: 'text' | 'head' | 'image' | 'tiny'
+// The array also carries .letter: the typical letter height in pixels.
 
 function runs(flags, n) {            // runs of true in flags[0..n)
   const out = []; let s = -1;
@@ -120,5 +121,7 @@ export function findBlocks(g, w, h, thr) {
     band.sort((a, b) => b.r - a.r);
     for (const b of band) { out.push(b); rest.splice(rest.indexOf(b), 1); }
   }
-  return out.filter((b) => b.kind === 'text' || b.kind === 'head');
+  const res = out.filter((b) => b.kind === 'text' || b.kind === 'head');
+  res.letter = globalMed;   // typical letter height (px), so callers can judge line spacings
+  return res;
 }

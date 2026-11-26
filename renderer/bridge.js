@@ -86,6 +86,12 @@
     openFiles: () => invoke('open_files'),
     // Text of every page of a PDF, read in Rust (crates/thaana-core): [{ kind, text }, ...]
     readPdf: (bytes, opts) => invoke('pdf_read', bytes, { headers: { 'x-options': JSON.stringify(opts) } }),
+    // Scan clean-up and line finding in Rust (crates/thaana-core/src/scan.rs), from the page's RGBA pixels
+    prepareScan: (rgba, opts) => invoke('scan_prepare', new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength), { headers: { 'x-options': JSON.stringify(opts) } }),
+    prepareLabel: async (rgba, opts) => {
+      const [lines, pitch] = await invoke('scan_prepare_label', new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength), { headers: { 'x-options': JSON.stringify(opts) } });
+      return { lines, pitch };
+    },
     readWords: async () => { try { return await (await fetch(base + 'lang/dhivehi-words.txt')).text(); } catch { return ''; } },
     labelSave: (o) => invoke('label_save', { o }),
     labelUndo: (id) => invoke('label_undo', { id }),
