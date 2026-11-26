@@ -2,73 +2,26 @@
   "name": "thaana-pdf-to-word",
   "productName": "Thaana PDF to Word",
   "version": "0.3.0",
-  "description": "Turn scanned Dhivehi (Thaana) pages into editable text and Word files.",
-  "main": "main.js",
+  "description": "Turn Dhivehi (Thaana) PDFs and scans into editable text and Word files.",
   "author": "Thaana PDF to Word",
   "license": "Apache-2.0",
+  "private": true,
   "scripts": {
     "postinstall": "node scripts/vendor.mjs",
-    "start": "node scripts/vendor.mjs && electron .",
     "tauri": "tauri",
-    "app:dev": "tauri dev",
-    "app:build": "tauri build",
+    "start": "tauri dev",
+    "build": "tauri build",
     "test": "node --test test/pdf.test.mjs",
-    "test:app": "electron test/app-smoke.cjs",
     "test:core": "cargo test --manifest-path crates/thaana-core/Cargo.toml",
     "test:parity": "cargo build --release --manifest-path crates/thaana-core/Cargo.toml && node test/parity.mjs && node test/scan-parity.mjs",
-    "bench:ocr": "node test/ocr-accuracy.mjs",
-    "test:tauri": "node scripts/vendor.mjs && cargo test --manifest-path src-tauri/Cargo.toml && cargo build --manifest-path src-tauri/Cargo.toml --release --features smoke,tauri/custom-protocol --target-dir src-tauri/target/smoke && node test/tauri-smoke.mjs",
-    "dist:win": "electron-builder --win portable --x64",
-    "dist:mac": "electron-builder --mac dmg --universal",
-    "dist:mac-separate": "electron-builder --mac dmg --arm64 --x64"
+    "test:app": "node scripts/vendor.mjs && cargo test --manifest-path src-tauri/Cargo.toml && cargo build --manifest-path src-tauri/Cargo.toml --release --features smoke,tauri/custom-protocol --target-dir src-tauri/target/smoke && node test/tauri-smoke.mjs",
+    "bench:ocr": "node test/ocr-accuracy.mjs"
   },
   "dependencies": {
-    "docx": "^9.16.0",
     "pdfjs-dist": "^6.5.438",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.6",
-    "electron": "^45.4.1",
-    "electron-builder": "^26.18.0"
-  },
-  "build": {
-    "appId": "mv.thaanaocr.app",
-    "productName": "Thaana PDF to Word",
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**",
-      "!renderer/vendor/lang/**",
-      "!renderer/vendor/tesseract/**",
-      "!renderer/vendor/tesseract-core/**",
-      "lang/**",
-      "build/icon.png",
-      "node_modules/**",
-      "!node_modules/@napi-rs/**"
-    ],
-    "asarUnpack": [
-      "lang/**",
-      "node_modules/tesseract.js/**",
-      "node_modules/tesseract.js-core/**"
-    ],
-    "win": {
-      "target": "portable",
-      "signAndEditExecutable": false,
-      "icon": "build/icon.png"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "public.app-category.productivity",
-      "icon": "build/icon.png",
-      "artifactName": "Thaana-OCR-${version}-Mac-${arch}.${ext}"
-    },
-    "directories": {
-      "buildResources": "build",
-      "output": "dist"
-    },
-    "portable": {
-      "artifactName": "Thaana-OCR-${version}-Windows.exe"
-    }
+    "@tauri-apps/cli": "^2.12.6"
   }
 }

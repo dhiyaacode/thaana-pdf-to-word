@@ -1,4 +1,4 @@
-// Runs inside the Tauri app window (see test/tauri-smoke.mjs). window.__SMOKE is set by the runner.
+// Runs inside the app window (see test/tauri-smoke.mjs). window.__SMOKE is set by the runner.
 (async () => {
   const { invoke } = window.__TAURI__.core;
   const { fixtures, spec, extra } = window.__SMOKE;

@@ -1,5 +1,5 @@
 // Copies the browser libraries and reading models next to the interface (renderer/vendor/),
-// so the same renderer runs in Electron and in Tauri. Run by `npm install` and before builds.
+// where the app's web view loads them. Run by `npm install` and before builds.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

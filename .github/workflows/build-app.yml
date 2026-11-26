@@ -1,4 +1,4 @@
-# Builds the Tauri app for Windows and macOS (Apple chip and Intel) and attaches the
+# Builds the app for Windows and macOS (Apple chip and Intel) and attaches the
 # installers to a draft release. Run it from the Actions tab, or push a tag such as v0.4.0.
 name: Build app
 

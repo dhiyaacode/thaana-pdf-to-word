@@ -1,6 +1,6 @@
 // Thaana PDF to Word: the Rust side of the app (files, dialogs, clipboard, Word export, labels).
 // The interface (renderer/) runs in the system web view and calls these commands through
-// renderer/bridge.js, which gives it the same `window.ocr` API the Electron version had.
+// renderer/bridge.js, which exposes them to it as `window.ocr`.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod docx;

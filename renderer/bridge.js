@@ -1,7 +1,7 @@
-// Tauri bridge: gives the interface the same `window.ocr` API that Electron's preload.js provides.
-// Files, dialogs, clipboard, Word export and labels run in Rust (src-tauri/src/main.rs).
-// Reading scans (OCR) runs here in the web view with Tesseract and the models in vendor/lang.
-// In Electron, preload.js has already defined window.ocr and this file does nothing.
+// The bridge between the interface and the Rust side of the app: it defines `window.ocr`.
+// Files, dialogs, clipboard, Word export, labels, the PDF text reader and scan clean-up run in Rust
+// (src-tauri/src/main.rs, crates/thaana-core). Reading the text lines of scans (OCR) runs here in
+// the web view, with Tesseract and the models in vendor/lang.
 (() => {
   if (window.ocr || !window.__TAURI__) return;
   const { invoke } = window.__TAURI__.core;
@@ -60,7 +60,7 @@
   // the Thaana model invents them in the wide gaps of justified text. Kept when the page has English.
   const JUNK = /[\u00A2\u00A3\u00A5-\u00A7\u00A9\u00AB\u00AC\u00AE\u00B0\u00BB\u00BF\u02C6\u201E\u2030\u2039\u203A\u20AC`|~^{}\\]/g;
 
-  // Clean up common OCR noise in Thaana output (same as main.js in the Electron version).
+  // Clean up common OCR noise in Thaana output.
   const tidy = (text, withEnglish) => (withEnglish ? text : text.replace(JUNK, ' '))
     .replace(/[\u200E\u200F\u202A-\u202E]/g, '')        // stray direction marks
     .replace(/[\u064B-\u0652]/g, '')                      // Arabic harakat the model sometimes invents

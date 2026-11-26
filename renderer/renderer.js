@@ -43,8 +43,8 @@ async function addFile({ name, data, bytes, ext }) {
   if (!bytes) bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
   if (ext === '.pdf') {
     const useText = $('optPdfText').checked;
-    // In the Tauri app the text is read in Rust (crates/thaana-core). It gives the same result as
-    // the JavaScript reader below, which stays as the fallback (and is used in Electron).
+    // The text is read in Rust (crates/thaana-core). The JavaScript reader below gives the same
+    // result; it is the fallback if the Rust one fails on a file, and the tests compare the two.
     let fromRust = null;
     if (useText && window.ocr.readPdf) {
       setStatus(`Opening ${name}…`);
@@ -189,8 +189,8 @@ function prepare(page, enhance) {
   return { lines, boxes, pitch, skew };
 }
 
-// In the Tauri app the clean-up and line finding run in Rust (same results for the line-finding
-// arithmetic as the JavaScript above, which stays as the fallback and is used in Electron).
+// The clean-up and line finding run in Rust (crates/thaana-core/src/scan.rs). The JavaScript
+// above gives the same line-finding results; it is the fallback, and the tests compare the two.
 const pixels = (page) => page.canvas.getContext('2d').getImageData(0, 0, page.canvas.width, page.canvas.height).data;
 async function prepareAny(page, enhance) {
   if (window.ocr.prepareScan) {

@@ -1,5 +1,5 @@
 //! Minimal Word (.docx) writer: right-to-left, justified paragraphs, and tables for lines that
-//! contain tabs (table cells found in the PDF). Produces the same layout as the Electron version.
+//! contain tabs (table cells found in the PDF).
 
 use std::io::{Cursor, Write};
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};

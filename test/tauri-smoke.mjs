@@ -1,6 +1,6 @@
-// End-to-end test of the Tauri app: starts the real app built with test hooks, runs
+// End-to-end test of the app: starts the real app built with test hooks, runs
 // test/tauri-smoke.page.js inside its window, then checks the Word file it saved.
-//   npm run test:tauri [-- extra.pdf ...]
+//   npm run test:app [-- extra.pdf ...]
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..');
 const exe = path.join(root, 'src-tauri', 'target', 'smoke', 'release', process.platform === 'win32' ? 'thaana-pdf-to-word.exe' : 'thaana-pdf-to-word');
-if (!fs.existsSync(exe)) { console.error('Build it first: npm run test:tauri'); process.exit(2); }
+if (!fs.existsSync(exe)) { console.error('Build it first: npm run test:app'); process.exit(2); }
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'thaana-tauri-'));
 const saveTo = path.join(tmp, 'typed.docx');
@@ -53,5 +53,5 @@ if (fs.existsSync(saveTo)) {
 }
 console.log(`${docxOk ? 'PASS' : 'FAIL'}  Word file from Rust: one table, 3 rows x 4 cells, wrapped cell intact`);
 const ok = code === 0 && docxOk && /RESULT (\d+)\/\1/.test(out);
-console.log(ok ? '\nTauri app: all checks passed' : `\nTauri app: FAILED (exit code ${code})`);
+console.log(ok ? '\nApp: all checks passed' : `\nApp: FAILED (exit code ${code})`);
 process.exit(ok ? 0 : 1);

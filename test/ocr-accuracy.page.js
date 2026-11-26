@@ -1,4 +1,4 @@
-// Runs inside the Tauri app window for test/ocr-accuracy.mjs (window.__BENCH is set by the runner):
+// Runs inside the app window for test/ocr-accuracy.mjs (window.__BENCH is set by the runner):
 // reads a PDF as pictures even though it has text, and reports the text and the time.
 (async () => {
   const { invoke } = window.__TAURI__.core;

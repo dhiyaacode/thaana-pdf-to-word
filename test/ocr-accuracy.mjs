@@ -14,7 +14,7 @@ import { readPdf } from './run-pdf.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exe = path.join(here, '..', 'src-tauri', 'target', 'smoke', 'release', process.platform === 'win32' ? 'thaana-pdf-to-word.exe' : 'thaana-pdf-to-word');
-if (!fs.existsSync(exe)) { console.error('Build the test app first: npm run test:tauri'); process.exit(2); }
+if (!fs.existsSync(exe)) { console.error('Build the test app first: npm run test:app'); process.exit(2); }
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => (args.find((a) => a.startsWith(`--${name}=`)) || `--${name}=${dflt}`).split('=')[1];
