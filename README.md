@@ -22,6 +22,7 @@ Works on **Windows** and **Mac** (Intel and Apple chip). Everything runs on your
 ## Download
 Go to the **Releases** page and download the file for your computer:
 - **Windows:** the `…x64-setup.exe` installer (about 10 MB). Run it. It needs WebView2, which Windows 10 and 11 already have.
+- **Windows, portable (no installing):** the `…x64-portable.zip` (about 12 MB). Unzip it anywhere, for example onto a USB stick, and double-click **Thaana PDF to Word.exe**. Nothing is installed; it also needs WebView2.
 - **Mac:** the `.dmg` marked `aarch64` for Apple-chip Macs (M1 and later) or `x64` for Intel Macs. Open it and drag the app to Applications.
 
 The app is not code-signed, so your computer will warn you the first time. This is normal for free apps.

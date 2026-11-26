@@ -1,5 +1,5 @@
 # Builds the app for Windows and macOS (Apple chip and Intel) and attaches the
-# installers to a draft release. Run it from the Actions tab, or push a tag such as v0.4.0.
+# installers (and a portable Windows .zip) to a draft release. Run it from the Actions tab, or push a tag such as v0.4.0.
 name: Build app
 
 on:
@@ -46,3 +46,18 @@ jobs:
           releaseDraft: true
           prerelease: true
           args: ${{ matrix.args }}
+      # Portable Windows version: the app's .exe holds the whole interface and the reading
+      # models, so on its own it runs from any folder without installing.
+      - name: Attach portable Windows version
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force portable | Out-Null
+          Copy-Item src-tauri/target/release/thaana-pdf-to-word.exe 'portable/Thaana PDF to Word.exe'
+          $zip = "Thaana.PDF.to.Word_${v}_x64-portable.zip"
+          Compress-Archive -Path 'portable/Thaana PDF to Word.exe' -DestinationPath $zip -CompressionLevel Optimal
+          gh release upload $env:TAG $zip --clobber
