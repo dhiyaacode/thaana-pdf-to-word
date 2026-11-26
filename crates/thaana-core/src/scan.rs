@@ -1,15 +1,13 @@
-//! Scan clean-up and Thaana-aware line finding (port of renderer/segment.js, columns.js and
-//! `prepare()` in renderer/renderer.js).
+//! Scan clean-up and Thaana-aware line finding.
 //!
 //! Tesseract's own page layout splits fili (vowel signs) into separate "lines", so the app finds
-//! text lines itself and sends each one to the recogniser. The pure-arithmetic parts (threshold,
-//! line finding, column blocks, ruled-line removal) give exactly the JavaScript results; the steps
-//! the browser did with canvas operations (blur, resizing, rotation) are done here natively.
+//! text lines itself and sends each one to the recogniser: it evens out the page, straightens it,
+//! finds newspaper columns when there are real ones, and cuts the text into lines.
 
 use crate::text::js_round;
 use serde::Serialize;
 
-/// A grey image, 0 (black) .. 255 (white), one f32 per pixel like the JavaScript Float32Array.
+/// A grey image, 0 (black) .. 255 (white), one f32 per pixel.
 #[derive(Clone)]
 pub struct Gray {
     pub w: usize,
@@ -186,7 +184,7 @@ fn box_blur3(g: &Gray, sigma: f64) -> Vec<f32> {
     a
 }
 
-/// Evens out shadows / yellowed paper, then stretches contrast (segment.js normalize()).
+/// Evens out shadows / yellowed paper, then stretches contrast.
 pub fn normalize(g: &mut Gray, enhance: bool) {
     if enhance {
         let bg = blur(g, js_round(g.w.max(g.h) as f64 / 60.0));
@@ -221,7 +219,7 @@ pub fn normalize(g: &mut Gray, enhance: bool) {
     }
 }
 
-/// Otsu's threshold (segment.js otsu()).
+/// Otsu's threshold.
 pub fn otsu(g: &[f32]) -> f32 {
     let mut h = [0f64; 256];
     for &v in g {
@@ -248,7 +246,7 @@ pub fn otsu(g: &[f32]) -> f32 {
     t as f32
 }
 
-/// The rotation (-4..+4 degrees) that makes text lines most horizontal (segment.js findSkew()).
+/// The rotation (-4..+4 degrees) that makes text lines most horizontal.
 pub fn find_skew(g: &Gray, thr: f32) -> f64 {
     let s = 1000.0 / g.w.max(g.h) as f64;
     let bin = Gray { w: g.w, h: g.h, px: g.px.iter().map(|&v| if v < thr { 0.0 } else { 255.0 }).collect() };
@@ -290,7 +288,7 @@ pub fn rotate_gray(g: Gray, deg: f64) -> Gray {
 }
 
 // ---------------------------------------------------------------- line finding
-#[derive(Clone, Copy, Debug, Serialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, serde::Deserialize, PartialEq)]
 pub struct LineBox {
     pub l: usize,
     pub t: usize,
@@ -360,7 +358,7 @@ fn line_pitch(p: &[f64], letter: f64) -> f64 {
     pp as f64
 }
 
-/// Text line boxes in reading order (top to bottom), plus the line pitch (segment.js findLines()).
+/// Text line boxes in reading order (top to bottom), plus the line pitch.
 /// `pitch_hint`: line spacing measured elsewhere (a block of one or two lines cannot show its own).
 /// `letter`: typical letter height, to keep the measured spacing in a sensible range (see line_pitch).
 pub fn find_lines(g: &[f32], w: usize, h: usize, thr: f32, pitch_hint: f64, letter: f64) -> (Vec<LineBox>, f64) {
@@ -439,7 +437,7 @@ pub fn crop_to_png(g: &Gray, b: &LineBox, pitch: f64) -> Vec<u8> {
     c.resize((js_round(c.w as f64 * s) as usize).max(1), (js_round(c.h as f64 * s) as usize).max(1)).png()
 }
 
-// ---------------------------------------------------------------- column blocks (columns.js)
+// ---------------------------------------------------------------- column blocks
 fn runs(flags: &[u8]) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     let mut s: Option<usize> = None;
@@ -557,7 +555,7 @@ pub struct Block {
 }
 
 /// Column / block analysis for newspapers and magazines (XY-cut), right-to-left reading order.
-/// Returns the text and heading blocks in reading order (columns.js findBlocks()).
+/// Returns the text and heading blocks in reading order.
 /// Also returns the typical letter height in pixels (0 when the page has too little ink to tell).
 pub fn find_blocks(g: &[f32], w: usize, h: usize, thr: f32) -> (Vec<Block>, f64) {
     let mut raw: Vec<u8> = g.iter().map(|&v| (v < thr) as u8).collect();
@@ -721,7 +719,7 @@ pub fn find_blocks(g: &[f32], w: usize, h: usize, thr: f32) -> (Vec<Block>, f64)
 }
 
 /// Erases long thin horizontal / vertical ruling (notebook lines, margins) so handwriting can be
-/// found (segment.js removeRuling()).
+/// found.
 pub fn remove_ruling(g: &[f32], w: usize, h: usize, thr: f32) -> Vec<f32> {
     let ink: Vec<u8> = g.iter().map(|&v| (v < thr) as u8).collect();
     let dil = |src: &[u8], rx: isize, ry: isize| -> Vec<u8> {
@@ -821,17 +819,23 @@ pub struct Prepared {
     pub blk: Option<Vec<usize>>,
 }
 
-fn page_gray(rgba: &[u8], w: usize, h: usize, rotation: i32, scale: f64) -> Gray {
-    let g = Gray::from_rgba(rgba, w, h);
-    g.resize(js_round(w as f64 * scale) as usize, js_round(h as f64 * scale) as usize).rotate90(rotation)
+/// How much to scale a page whose long side is `long` pixels so the text is big enough for the
+/// reader: the long side ends up between 2400 and 3600 px (enlarged at most 3 times).
+pub fn reading_scale(long: f64) -> f64 {
+    if long < 2400.0 { (2400.0 / long).min(3.0) } else if long > 3600.0 { 3600.0 / long } else { 1.0 }
 }
 
-/// Cleans up a scanned page and cuts it into text lines (renderer.js prepare()).
-pub fn prepare(rgba: &[u8], w: usize, h: usize, rotation: i32, enhance: bool, columns: bool) -> Prepared {
-    // Aim for text big enough for the OCR engine: ~2400-3200 px across a page.
-    let long = w.max(h) as f64;
-    let scale = if long < 2400.0 { (2400.0 / long).min(3.0) } else if long > 3600.0 { 3600.0 / long } else { 1.0 };
-    let mut g = page_gray(rgba, w, h, rotation, scale);
+fn scaled_turned(g: Gray, scale: f64, rotation: i32) -> Gray {
+    let (w, h) = (js_round(g.w as f64 * scale) as usize, js_round(g.h as f64 * scale) as usize);
+    let g = if (w, h) == (g.w, g.h) { g } else { g.resize(w, h) };
+    g.rotate90(rotation)
+}
+
+/// Cleans up a scanned page (any size; turned by `rotation` degrees, a multiple of 90) and cuts it
+/// into text lines.
+pub fn prepare(page: Gray, rotation: i32, enhance: bool, columns: bool) -> Prepared {
+    let scale = reading_scale(page.w.max(page.h) as f64);
+    let mut g = scaled_turned(page, scale, rotation);
     normalize(&mut g, enhance);
     let thr = otsu(&g.px);
     let skew = find_skew(&g, thr);
@@ -893,12 +897,11 @@ pub fn prepare(rgba: &[u8], w: usize, h: usize, rotation: i32, enhance: bool, co
     Prepared { lines, boxes, pitch, skew, blk: None }
 }
 
-/// Lines of a handwritten page for labelling: the original crop and the crop with ruling removed
-/// (renderer.js prepareLabel()).
-pub fn prepare_label(rgba: &[u8], w: usize, h: usize, rotation: i32) -> (Vec<(Vec<u8>, Vec<u8>)>, f64) {
-    let long = w.max(h) as f64;
+/// Lines of a handwritten page for labelling: the original crop and the crop with ruling removed.
+pub fn prepare_label(page: Gray, rotation: i32) -> (Vec<(Vec<u8>, Vec<u8>)>, f64) {
+    let long = page.w.max(page.h) as f64;
     let scale = if long > 3000.0 { 3000.0 / long } else if long < 1800.0 { (1800.0 / long).min(2.0) } else { 1.0 };
-    let mut g = page_gray(rgba, w, h, rotation, scale);
+    let mut g = scaled_turned(page, scale, rotation);
     normalize(&mut g, true);
     let thr = otsu(&g.px);
     let skew = find_skew(&g, thr);

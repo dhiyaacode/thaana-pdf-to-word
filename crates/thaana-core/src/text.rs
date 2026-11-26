@@ -1,6 +1,6 @@
-//! Small text helpers. They follow JavaScript's rules exactly (what counts as whitespace, how
-//! Math.round rounds, string length in UTF-16 units), so the Rust reader gives the same output as
-//! the JavaScript one in renderer/ (pdftext.js).
+//! Small text helpers. Some follow JavaScript's rules exactly (what counts as whitespace, how
+//! Math.round rounds, string length in UTF-16 units): the reader was first written in JavaScript
+//! and these keep its results unchanged.
 
 /// JavaScript's Math.round: halves round up (towards +infinity).
 pub fn js_round(x: f64) -> f64 {

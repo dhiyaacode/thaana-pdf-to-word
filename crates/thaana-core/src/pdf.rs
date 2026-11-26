@@ -1,6 +1,6 @@
 //! Reads every glyph of a PDF page with its position, plus border lines and pictures.
-//! It produces the same data the JavaScript reader gets from pdf.js (`pageGlyphs()` in
-//! renderer/pdfglyphs.js): character(s), origin, advance width, baseline and size.
+//! For each glyph: its character(s), origin, advance width, baseline and size, the same values
+//! pdf.js reports (the rules in layout.rs were first developed against pdf.js output).
 
 use crate::layout::{Glyph, HRule, PageData, VRule};
 use lopdf::{content::Content, Dictionary, Document, Object, ObjectId};

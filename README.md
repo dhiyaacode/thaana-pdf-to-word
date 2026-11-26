@@ -37,14 +37,13 @@ See the **User Manual** in the `docs` folder (`docs/Thaana-PDF-to-Word-User-Manu
 The app is a Rust program made with [Tauri](https://tauri.app). It shows its interface in the computer's own web view (WebView2 on Windows, WebKit on Mac), which displays and edits right-to-left Thaana text correctly.
 
 - `crates/thaana-core`: the Rust library that does the work.
+  - `pages.rs`: opens PDFs and pictures and draws their pages. PDF pages are drawn with [hayro](https://github.com/LaurenzV/hayro), a PDF renderer written in Rust; pictures (PNG, JPEG, TIFF, BMP, WebP, GIF) are decoded with the [image](https://github.com/image-rs/image) crate.
   - `pdf.rs`, `layout.rs`, `repair.rs`: take the text out of typed PDFs, put letters and vowel signs back in order, rebuild tables, repair words with the word list.
   - `scan.rs`: clean up scanned pages, straighten them, find text lines and newspaper columns.
+  - `ocr.rs`: turn what the reader recognised on each line into finished text: remove its usual noise, join lines into paragraphs, repair words.
   - It also builds a command-line tool, `thaana-pdf`.
-- `src-tauri`: the app itself. Files, dialogs, the clipboard, Word export and handwriting labels.
-- `renderer`: the interface (HTML and JavaScript). Two things still run here:
-  - [PDF.js](https://github.com/mozilla/pdf.js) draws the pages.
-  - [Tesseract](https://github.com/naptha/tesseract.js) reads the text lines of scans, with the models in `lang/`.
-  - The interface also keeps JavaScript versions of the PDF reader and scan clean-up. The app uses them only if the Rust ones fail on a file, and the tests use them to check the Rust code gives the same answers.
+- `src-tauri`: the app itself. It keeps the pages of open files, and does the dialogs, clipboard, Word export and handwriting labels.
+- `renderer`: the interface (HTML and JavaScript): buttons, the page list and the text box. It refers to pages by number; the pages themselves stay in Rust. One step still runs here: [Tesseract](https://github.com/naptha/tesseract.js) recognises the text lines of scans, with the models in `lang/`.
 
 Scan reading uses the app's own model `lang/divx.traineddata` when it is present (it is not part of this source repository). Otherwise it uses the standard Tesseract Dhivehi model `lang/div.traineddata` (from tessdata_fast), which is included. It is less accurate.
 
@@ -57,11 +56,9 @@ You need Node.js (LTS) and Rust (https://rustup.rs). Then, in this folder:
 Mac builds are made by GitHub Actions (`.github/workflows/build-app.yml`): run it from the Actions tab, or push a `v…` tag. It builds Windows and both kinds of Mac and puts them on a draft release.
 
 ## Tests
-- `npm test`: checks the PDF reader against test PDFs (paragraphs, vowel signs, bordered and borderless tables, scanned pages, form XObjects).
-- `npm run test:core`: the Rust library's own tests.
-- `npm run test:parity`: checks that the Rust and JavaScript code give exactly the same results, page by page.
+- `npm test`: the Rust library's tests, including checks against the test PDFs and pictures (paragraphs, vowel signs, bordered and borderless tables, scanned pages, form XObjects, drawing pages, finding text lines).
 - `npm run test:app`: builds the real app with test hooks, drops the test PDFs on it, saves a Word file and runs *Read text*.
-- `npm run bench:ocr -- some-typed.pdf`: measures how well and how fast scans are read. It makes the app read a typed PDF as pictures and scores the result against the PDF's true text. Run it before and after any change to scan reading (it needs the test build that `npm run test:app` makes).
+- `npm run bench:ocr -- some-typed.pdf`: measures how well and how fast scans are read. It makes the app read a typed PDF as pictures and scores the result against the PDF's true text. Run it before and after any change to scan reading (it needs the test build that `npm run test:app` makes). The true text comes from the library's command-line tool: `thaana-pdf --json file.pdf`.
 
 The test PDFs are made on your computer, not stored in the repository. On Windows with Word and Edge installed, run `pwsh test/make-fixtures.ps1`, then `python test/make-fixtures.py` (needs `pip install pillow pypdf`).
 

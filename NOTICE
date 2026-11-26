@@ -3,13 +3,15 @@ Copyright 2026 the Thaana PDF to Word authors. Licensed under the Apache License
 
 This app includes or depends on the following open-source software:
 - Tauri (Apache-2.0 or MIT)                     https://github.com/tauri-apps/tauri
+- hayro, PDF renderer (Apache-2.0 or MIT)       https://github.com/LaurenzV/hayro
+- vello_cpu (Apache-2.0 or MIT)                 https://github.com/linebender/vello
 - lopdf (MIT)                                   https://github.com/J-F-Liu/lopdf
+- image (MIT or Apache-2.0)                     https://github.com/image-rs/image
 - zip (MIT)                                     https://github.com/zip-rs/zip2
 - arboard (MIT or Apache-2.0)                   https://github.com/1Password/arboard
 - png (MIT or Apache-2.0)                       https://github.com/image-rs/image-png
 - serde, serde_json (MIT or Apache-2.0)         https://github.com/serde-rs/serde
 - base64 (MIT or Apache-2.0)                    https://github.com/marshallpierce/rust-base64
-- PDF.js / pdfjs-dist (Apache-2.0)              https://github.com/mozilla/pdf.js
 - Tesseract.js and Tesseract OCR (Apache-2.0)   https://github.com/naptha/tesseract.js
 - Tesseract trained data eng.traineddata and div.traineddata from tessdata_fast (Apache-2.0)  https://github.com/tesseract-ocr/tessdata_fast
 - Noto Sans Thaana font (SIL Open Font License 1.1), Noto Project  https://fonts.google.com/noto

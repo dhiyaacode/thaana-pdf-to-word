@@ -1,261 +1,121 @@
-import * as pdfjsLib from './vendor/pdfjs/pdf.mjs';   // copied by scripts/vendor.mjs
-pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.mjs';
-import { pageGlyphs, rebuild } from './pdfglyphs.js';
-import { Repairer } from './repair.js';
-import { joinPdfLines, textLooksComplete, hasThaana, looksScanned } from './pdftext.js';
-import { findBlocks } from './columns.js';
-import { removeRuling, grayToCanvas, normalize, otsu, findSkew, rotateGray, findLines, cropToPng, paragraphBreaks } from './segment.js';
+// The interface: shows the pages and the text, and runs the steps in order. The work is done in
+// Rust (opening files, drawing pages, reading PDF text, preparing scans, finishing their text) and
+// by the reader in bridge.js; see window.ocr there. Pages are referred to by their number.
 
 const $ = (id) => document.getElementById(id);
 const pagesEl = $('pages'), textEl = $('text'), statusEl = $('status'), bar = $('bar');
 const btn = { open: $('btnOpen'), read: $('btnRead'), copy: $('btnCopy'), docx: $('btnDocx'), txt: $('btnTxt'), clear: $('btnClear'), label: $('btnLabel') };
 
-let pages = [];          // { id, name, canvas, rotation, text, el }
+let pages = [];          // { id, name, kind, text, rotation, readable, fromPdf, el }
 let busy = false;
 let baseName = 'thaana-text';
-let repairer = null;
-async function getRepairer() {
-  // \r?\n: a Windows checkout has CRLF line endings, and "word\r" never matches anything
-  if (!repairer) repairer = new Repairer((await window.ocr.readWords()).split(/\r?\n/).filter(Boolean));
-  return repairer;
-}
-function refreshPdfText() {
-  const t = pages.map((p) => p.text).filter(Boolean).join('\n\n');
-  if (t) textEl.value = t;
-}
 
 function setStatus(msg, warn = false) { statusEl.textContent = msg; statusEl.classList.toggle('warn', warn); }
 function refreshButtons() {
   const hasText = textEl.value.trim().length > 0;
   btn.read.disabled = busy || pages.length === 0;
   btn.open.disabled = busy;
-  btn.label.disabled = busy || !pages.some((p) => !p.fromPdf);
+  btn.label.disabled = busy || !pages.some((p) => !p.fromPdf && p.readable);
   btn.copy.disabled = btn.docx.disabled = btn.txt.disabled = busy || !hasText;
   $('emptyHint').style.display = pages.length ? 'none' : '';
   const words = textEl.value.trim() ? textEl.value.trim().split(/\s+/).length : 0;
   $('counts').textContent = words ? `${words} words` : '';
 }
+function refreshPdfText() {
+  const t = pages.map((p) => p.text).filter(Boolean).join('\n\n');
+  if (t) textEl.value = t;
+}
+const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+const openOptions = () => ({ dropArabic: $('optNoArabic').checked, join: $('optJoin').checked, useText: $('optPdfText').checked });
 
-/* ---------- loading files ---------- */
-// data: base64 (from the Open dialog) or bytes: Uint8Array (drag & drop).
-async function addFile({ name, data, bytes, ext }) {
+/* ---------- pages ---------- */
+// Adds the pages of one opened file. Returns true when the status line already says what to do.
+function addFile({ name, pages: list, error }) {
+  if (error) { setStatus(`Couldn't open ${name}: ${error}`, true); return true; }
   baseName = name.replace(/\.[^.]+$/, '');
-  if (!bytes) bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
-  if (ext === '.pdf') {
-    const useText = $('optPdfText').checked;
-    // The text is read in Rust (crates/thaana-core). The JavaScript reader below gives the same
-    // result; it is the fallback if the Rust one fails on a file, and the tests compare the two.
-    let fromRust = null;
-    if (useText && window.ocr.readPdf) {
-      setStatus(`Opening ${name}…`);
-      try { fromRust = await window.ocr.readPdf(bytes, { dropArabic: $('optNoArabic').checked, join: $('optJoin').checked }); }
-      catch (e) { console.warn('Rust PDF reader failed, using the JavaScript one:', e); }
-    }
-    document.body.dataset.pdfReader = fromRust ? 'rust' : 'js';   // which reader ran (shown to tests)
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;   // pages are still drawn with pdf.js
-    if (fromRust && fromRust.length !== pdf.numPages) fromRust = null;
-    let fromText = 0; const mine = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      setStatus(`Opening ${name} — page ${p} of ${pdf.numPages}…`);
-      const page = await pdf.getPage(p);
-      let txt = '', incomplete = false, scanned = false;
-      if (fromRust) {
-        const r = fromRust[p - 1];
-        txt = r.kind === 'text' ? r.text : ''; incomplete = r.kind === 'damaged'; scanned = r.kind === 'scan';
-      } else if (useText) {
-        try {
-          const found = await pageGlyphs(pdfjsLib, page);
-          const lines = rebuild(found, { dropArabic: $('optNoArabic').checked });
-          const raw = lines.join('\n');
-          if (hasThaana(raw) && !textLooksComplete(raw)) incomplete = true;
-          if (hasThaana(raw) && textLooksComplete(raw)) txt = joinPdfLines((await getRepairer()).fixText(raw).split('\n'), $('optJoin').checked);
-          if (!txt && !incomplete) scanned = looksScanned(found);
-        } catch (e) { console.warn('PDF text failed on page', p, e); }
-      }
-      const vp1 = page.getViewport({ scale: 1 });
-      const scale = txt ? 0.5 : Math.min(4, 2600 / vp1.width);   // text pages only need a thumbnail
-      const vp = page.getViewport({ scale });
-      const c = document.createElement('canvas');
-      c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      const pg = addPage(`${name} · p${p}`, c); pg.incomplete = incomplete; pg.scanned = scanned; mine.push(pg);
-      if (txt) { pg.text = txt; pg.fromPdf = true; pg.el.className = 'page done'; fromText++; }
-    }
-    if (fromText) {
-      // Pages without text are blank, unless they show a scanned page: those are left for "Read text".
-      mine.forEach((pg) => { if (!pg.incomplete && !pg.scanned) { pg.fromPdf = true; pg.el.className = 'page done'; } });
-      refreshPdfText();
-      const inc = mine.filter((pg) => pg.incomplete).length, scans = mine.filter((pg) => pg.scanned).length;
-      const blank = mine.length - fromText - inc - scans;
-      const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
-      setStatus(`${name}: text taken straight from the PDF (${plural(fromText, 'page')}${blank ? `, ${blank} blank` : ''}) — no reading needed. Copy or save as Word.`
-        + (inc ? ` ${plural(inc, 'page')} had damaged text inside the PDF — click “Read text” to read ${inc > 1 ? 'them' : 'it'} as a picture.` : '')
-        + (scans ? ` ${plural(scans, 'page')} ${scans > 1 ? 'are scans' : 'is a scan'} — click “Read text” to read ${scans > 1 ? 'them' : 'it'}.` : ''));
-    } else if (mine.some((pg) => pg.incomplete)) {
-      setStatus(`${name}: the text inside this PDF is damaged (missing vowel signs), so it will be read as a picture. Click “Read text”.`, true);
-    }
-    return fromText > 0 || mine.some((pg) => pg.incomplete);   // true: the status line already says what to do
-  } else {
-    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.bmp' ? 'image/bmp' : ext.startsWith('.tif') ? 'image/tiff' : 'image/jpeg';
-    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
-    const img = await loadImage(url).catch(() => null);
-    URL.revokeObjectURL(url);
-    if (!img) { setStatus(`Couldn't open ${name} (TIFF files may need converting to PNG/JPG).`, true); return; }
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
-    c.getContext('2d').drawImage(img, 0, 0);
-    addPage(name, c);
+  if (!/\.pdf$/i.test(name)) { list.forEach((p) => addPage(name, p)); return false; }
+  const count = (k) => list.filter((p) => p.kind === k).length;
+  const fromText = count('text'), inc = count('damaged'), scans = count('scan'), blank = count('blank');
+  // A PDF with no Thaana text at all (e.g. made with an old non-Unicode font) is read as pictures.
+  list.forEach((p, i) => addPage(`${name} · p${i + 1}`, p, fromText === 0 && p.kind === 'blank'));
+  refreshPdfText();
+  if (fromText) {
+    setStatus(`${name}: text taken straight from the PDF (${plural(fromText, 'page')}${blank ? `, ${blank} blank` : ''}) — no reading needed. Copy or save as Word.`
+      + (inc ? ` ${plural(inc, 'page')} had damaged text inside the PDF — click “Read text” to read ${inc > 1 ? 'them' : 'it'} as a picture.` : '')
+      + (scans ? ` ${plural(scans, 'page')} ${scans > 1 ? 'are scans' : 'is a scan'} — click “Read text” to read ${scans > 1 ? 'them' : 'it'}.` : ''));
+    return true;
   }
+  if (inc) {
+    setStatus(`${name}: the text inside this PDF is damaged (missing vowel signs), so it will be read as a picture. Click “Read text”.`, true);
+    return true;
+  }
+  return false;
 }
-function loadImage(src) {
-  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
-}
-function addPage(name, canvas) {
-  const page = { id: crypto.randomUUID(), name, canvas, rotation: 0, text: '' };
+
+function addPage(name, info, readAnyway = false) {
+  const page = { id: info.id, name, kind: info.kind, text: info.kind === 'text' ? info.text : '', rotation: 0, readable: info.readable };
+  // Pages that need no reading: typed text, and blank pages (unless the whole PDF had no text).
+  page.fromPdf = info.kind === 'text' || (info.kind === 'blank' && !readAnyway);
   const el = document.createElement('div');
-  el.className = 'page';
+  el.className = page.fromPdf ? 'page done' : 'page';
   el.innerHTML = `<img alt=""><div class="row"><span class="name"></span><span class="tools">
     <button data-a="rot" title="Rotate 90°">⟳</button><button data-a="del" title="Remove">✕</button></span></div>`;
   el.querySelector('.name').textContent = name;
-  el.querySelector('[data-a=rot]').onclick = () => { page.rotation = (page.rotation + 90) % 360; drawThumb(page); };
-  el.querySelector('[data-a=del]').onclick = () => { pages = pages.filter((p) => p !== page); el.remove(); refreshButtons(); };
+  const img = el.querySelector('img');
+  if (info.thumb) img.src = info.thumb; else img.alt = 'This page cannot be shown';
+  el.querySelector('[data-a=rot]').onclick = () => {
+    page.rotation = (page.rotation + 90) % 360;
+    img.style.transform = page.rotation ? `rotate(${page.rotation}deg)${page.rotation % 180 ? ' scale(0.75)' : ''}` : '';
+  };
+  el.querySelector('[data-a=del]').onclick = () => {
+    pages = pages.filter((p) => p !== page); el.remove(); window.ocr.forgetPages([page.id]); refreshButtons();
+  };
   page.el = el; pagesEl.appendChild(el); pages.push(page);
-  drawThumb(page); refreshButtons();
+  refreshButtons();
   return page;
 }
-function drawThumb(page) {
-  const t = rotated(page.canvas, page.rotation, 400 / Math.max(page.canvas.width, page.canvas.height));
-  page.el.querySelector('img').src = t.toDataURL('image/jpeg', 0.8);
-}
-function rotated(src, deg, scale = 1) {
-  const w = Math.round(src.width * scale), h = Math.round(src.height * scale);
-  const c = document.createElement('canvas');
-  const side = deg % 180 !== 0;
-  c.width = side ? h : w; c.height = side ? w : h;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-  ctx.translate(c.width / 2, c.height / 2); ctx.rotate((deg * Math.PI) / 180);
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(src, -w / 2, -h / 2, w, h);
-  return c;
+
+async function openDropped(file) {
+  setStatus(`Opening ${file.name}…`);
+  return addFile(await window.ocr.openDocument(new Uint8Array(await file.arrayBuffer()), file.name, openOptions()));
 }
 
-/* ---------- image clean-up + line finding ---------- */
-function prepare(page, enhance) {
-  // Aim for text big enough for the OCR engine: ~2400–3200 px across a page.
-  const longSide = Math.max(page.canvas.width, page.canvas.height);
-  const scale = longSide < 2400 ? Math.min(3, 2400 / longSide) : longSide > 3600 ? 3600 / longSide : 1;
-  const c = rotated(page.canvas, page.rotation, scale);
-  const w = c.width, h = c.height;
-  let g = normalize(c, enhance);
-  const thr = otsu(g);
-  const skew = findSkew(g, w, h, thr);
-  g = rotateGray(g, w, h, skew);
-  // Newspapers / magazines: read column by column (right to left), but only when the page really
-  // has columns: two tall text blocks side by side, "tall" being 15 letter heights (about four
-  // lines) or more. A letterhead, a label beside a paragraph or a single line are not columns:
-  // such pages are read as one column, where the whole page shows the line spacing reliably.
-  // (findBlocks always runs: it also measures the letter height that line finding needs.)
-  let blocks = [], letter = 0;
-  try { const fb = findBlocks(g, w, h, thr); letter = fb.letter || 0; if ($('optColumns') && $('optColumns').checked) blocks = fb; } catch (e) { console.error(e); }
-  const L = letter || 15;
-  const tall = (b) => b.b - b.t >= 15 * L;
-  const beside = (a, b) => (a.r <= b.l || b.r <= a.l) && Math.min(a.b, b.b) - Math.max(a.t, b.t) >= 0.5 * Math.min(a.b - a.t, b.b - b.t);
-  const hasColumns = blocks.some((a) => tall(a) && blocks.some((b) => a !== b && tall(b) && beside(a, b)));
-  if (hasColumns) {
-    const subs = blocks.map((bl, bi) => {
-      const bw = bl.r - bl.l, bh = bl.b - bl.t; if (bw < 20 || bh < 10) return null;
-      const sub = new Float32Array(bw * bh);
-      for (let y = 0; y < bh; y++) sub.set(g.subarray((bl.t + y) * w + bl.l, (bl.t + y) * w + bl.r), y * bw);
-      return { bl, bi, bw, bh, sub, own: findLines(sub, bw, bh, thr, 0, letter) };
-    }).filter(Boolean);
-    // A block of one or two lines (a headline, a caption) cannot show its own line spacing: it
-    // would cut the vowel-sign rows off as separate lines. It gets the spacing of the columns
-    // (the median of the tall blocks).
-    const good = subs.filter((s) => tall(s.bl)).map((s) => s.own.pitch).sort((a, b) => a - b);
-    const ref = good.length ? good[good.length >> 1] : findLines(g, w, h, thr, 0, letter).pitch;
-    const boxes = [], lines = [], blk = []; let pitch = 0;
-    subs.forEach((s) => {
-      const { bl, bi, bw, bh, sub, own } = s;
-      const r = tall(bl) && bh >= 4 * ref ? own : findLines(sub, bw, bh, thr, ref);
-      pitch = pitch || r.pitch;
-      r.boxes.forEach((b) => { lines.push(cropToPng(sub, bw, b, r.pitch)); boxes.push({ l: b.l + bl.l, t: b.t + bl.t, r: b.r + bl.l, b: b.b + bl.t }); blk.push(bi); });
-    });
-    return { lines, boxes, pitch: pitch || 45, skew, blk };
-  }
-  const { boxes, pitch } = findLines(g, w, h, thr, 0, letter);
-  const lines = boxes.map((b) => cropToPng(g, w, b, pitch));
-  return { lines, boxes, pitch, skew };
-}
-
-// The clean-up and line finding run in Rust (crates/thaana-core/src/scan.rs). The JavaScript
-// above gives the same line-finding results; it is the fallback, and the tests compare the two.
-const pixels = (page) => page.canvas.getContext('2d').getImageData(0, 0, page.canvas.width, page.canvas.height).data;
-async function prepareAny(page, enhance) {
-  if (window.ocr.prepareScan) {
-    try {
-      const c = page.canvas;
-      const r = await window.ocr.prepareScan(pixels(page), { w: c.width, h: c.height, rotation: page.rotation, enhance, columns: !!($('optColumns') && $('optColumns').checked) });
-      document.body.dataset.scanPrep = 'rust';
-      return r;
-    } catch (e) { console.warn('Rust scan clean-up failed, using the JavaScript one:', e); }
-  }
-  document.body.dataset.scanPrep = 'js';
-  return prepare(page, enhance);
-}
-
-/* ---------- OCR ---------- */
+/* ---------- reading scans ---------- */
 let pageIndex = 0, pageCount = 1;
 window.ocr.onProgress((p) => { if (busy) bar.style.width = `${((pageIndex + p) / pageCount) * 100}%`; });
-
-function assemble(results, boxes, pitch, joinParas, blk) {
-  if (blk) {   // column mode: assemble each block separately, blocks separated by a blank line
-    const parts = new Map();
-    results.forEach((r, i) => { if (!parts.has(blk[i])) parts.set(blk[i], { r: [], b: [] }); parts.get(blk[i]).r.push(r); parts.get(blk[i]).b.push(boxes[i]); });
-    return [...parts.values()].map((p) => assemble(p.r, p.b, pitch, joinParas)).filter(Boolean).join('\n\n');
-  }
-  if (!joinParas) return results.map((r) => r.text).filter(Boolean).join('\n');
-  const breaks = paragraphBreaks(boxes, pitch);
-  let out = '';
-  results.forEach((r, i) => {
-    if (!r.text) return;
-    out += out ? (breaks[i] ? '\n' : ' ') + r.text : r.text;
-  });
-  return out;
-}
 
 async function readAll() {
   if (!pages.length) return;
   busy = true; refreshButtons();
-  const enhance = $('optEnhance').checked, english = $('optEnglish').checked, joinParas = $('optJoin').checked;
+  const english = $('optEnglish').checked, join = $('optJoin').checked;
+  const prepOptions = { enhance: $('optEnhance').checked, columns: !!($('optColumns') && $('optColumns').checked) };
+  const prepare = (p) => window.ocr.prepareScan(p.id, { rotation: p.rotation, ...prepOptions });
   pageCount = pages.length;
   const out = [];
   const t0 = performance.now();
-  // With the Rust clean-up, the next page is prepared while the reader works on this one.
+  // The next page is prepared in Rust while the reader works on this one.
   const ahead = new Map();
   const prepareAhead = (from) => {
-    if (!window.ocr.prepareScan) return;
-    const i = pages.findIndex((p, k) => k > from && !p.fromPdf);
-    if (i >= 0 && !ahead.has(i)) ahead.set(i, prepareAny(pages[i], enhance));
+    const i = pages.findIndex((p, k) => k > from && !p.fromPdf && p.readable);
+    if (i < 0 || ahead.has(i)) return;
+    const job = prepare(pages[i]); job.catch(() => {});   // its error is reported when it is used
+    ahead.set(i, job);
   };
   try {
     for (pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const page = pages[pageIndex];
       if (page.fromPdf) { out.push(page.text); textEl.value = out.filter(Boolean).join('\n\n'); continue; }
+      if (!page.readable) { page.el.className = 'page'; out.push(''); continue; }
       page.el.className = 'page working';
       setStatus(`Finding text lines on page ${pageIndex + 1} of ${pages.length}…`);
-      await new Promise((r) => setTimeout(r, 30));
-      const prep = await (ahead.get(pageIndex) || prepareAny(page, enhance));
+      const prep = await (ahead.get(pageIndex) || prepare(page));
       ahead.delete(pageIndex);
       prepareAhead(pageIndex);
       if (!prep.lines.length) { page.el.className = 'page'; out.push(''); continue; }
       setStatus(pageIndex === 0 && !window.__warm ? 'Starting the reader (first time takes a few seconds)…' : `Reading page ${pageIndex + 1} of ${pages.length} (${prep.lines.length} lines)…`);
-      const results = await window.ocr.recognizeLines(prep.lines, english);
+      const recognised = await window.ocr.recognizeLines(prep.lines, english);
       window.__warm = true;
-      // Dictionary repair, as for typed PDFs: joins words the reader split and fixes vowel signs,
-      // only where the result is a known word.
-      page.text = (await getRepairer()).fixText(assemble(results, prep.boxes, prep.pitch, joinParas, prep.blk));
+      page.text = await window.ocr.finishScan({ lines: recognised, boxes: prep.boxes, pitch: prep.pitch, blk: prep.blk ?? null, join, withEnglish: english });
       page.el.className = 'page done';
       out.push(page.text);
       textEl.value = out.filter(Boolean).join('\n\n');
@@ -272,10 +132,12 @@ async function readAll() {
 
 /* ---------- buttons ---------- */
 btn.open.onclick = async () => {
-  const files = await window.ocr.openFiles();
+  setStatus('Opening…');
+  const files = await window.ocr.openFiles(openOptions());
   let told = false;
-  for (const f of files) told = (await addFile(f)) || told;
-  if (files.length && !told && !pages.every((p) => p.fromPdf)) setStatus(`${pages.length} page(s) ready. Click “Read text”.`);
+  for (const f of files) told = addFile(f) || told;
+  if (!files.length) setStatus('');
+  else if (!told && !pages.every((p) => p.fromPdf)) setStatus(`${pages.length} page(s) ready. Click “Read text”.`);
   refreshButtons();
 };
 btn.read.onclick = readAll;
@@ -285,40 +147,17 @@ btn.docx.onclick = async () => {
   if (p) setStatus('Saved: ' + p);
 };
 btn.txt.onclick = async () => { const p = await window.ocr.saveTxt({ text: textEl.value, suggestedName: baseName }); if (p) setStatus('Saved: ' + p); };
+
 /* ---------- handwriting labelling ---------- */
 const L = { queue: [], i: 0, saved: 0, last: null };
-function prepareLabel(page) {
-  const longSide = Math.max(page.canvas.width, page.canvas.height);
-  const scale = longSide > 3000 ? 3000 / longSide : longSide < 1800 ? Math.min(2, 1800 / longSide) : 1;
-  const c = rotated(page.canvas, page.rotation, scale);
-  const w = c.width, h = c.height;
-  let g = normalize(c, true);
-  const thr = otsu(g);
-  const skew = findSkew(g, w, h, thr);
-  g = rotateGray(g, w, h, skew);
-  const gc = removeRuling(g, w, h, thr);
-  const { boxes, pitch } = findLines(gc, w, h, thr);
-  return { g, gc, w, boxes, pitch };
-}
-function crop(g, w, b) {
-  const cw = b.r - b.l, ch = b.b - b.t, out = new Float32Array(cw * ch);
-  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) out[y * cw + x] = g[(b.t + y) * w + b.l + x];
-  return grayToCanvas(out, cw, ch);
-}
 async function startLabeling() {
   $('labeler').hidden = false; $('lprog').textContent = 'finding lines…';
-  await new Promise((r) => setTimeout(r, 30));
   L.queue = [];
-  for (const page of pages.filter((p) => !p.fromPdf)) {
-    if (window.ocr.prepareLabel) {
-      try {
-        const c = page.canvas, r = await window.ocr.prepareLabel(pixels(page), { w: c.width, h: c.height, rotation: page.rotation });
-        r.lines.forEach((l) => L.queue.push({ pngOrig: l.orig, show: 'data:image/png;base64,' + l.show, pitch: Math.round(r.pitch), page: page.name }));
-        continue;
-      } catch (e) { console.warn('Rust labelling clean-up failed, using the JavaScript one:', e); }
-    }
-    const pr = prepareLabel(page);
-    pr.boxes.forEach((b) => L.queue.push({ pngOrig: crop(pr.g, pr.w, b).toDataURL('image/png').split(',')[1], show: crop(pr.gc, pr.w, b).toDataURL('image/png'), pitch: Math.round(pr.pitch), page: page.name }));
+  for (const page of pages.filter((p) => !p.fromPdf && p.readable)) {
+    try {
+      const r = await window.ocr.prepareLabel(page.id, page.rotation);
+      r.lines.forEach((l) => L.queue.push({ pngOrig: l.orig, show: 'data:image/png;base64,' + l.show, pitch: Math.round(r.pitch), page: page.name }));
+    } catch (e) { console.error(e); }
   }
   L.i = 0; L.last = null; L.saved = await window.ocr.labelCount(); showLine();
 }
@@ -342,11 +181,14 @@ $('lundo').onclick = async () => { if (L.last) { await window.ocr.labelUndo(L.la
 $('lfolder').onclick = () => window.ocr.labelShow();
 $('lclose').onclick = () => { $('labeler').hidden = true; };
 
-btn.clear.onclick = () => { pages = []; pagesEl.querySelectorAll('.page').forEach((e) => e.remove()); textEl.value = ''; setStatus('Cleared.'); refreshButtons(); };
+btn.clear.onclick = () => {
+  window.ocr.forgetPages(pages.map((p) => p.id));
+  pages = []; pagesEl.querySelectorAll('.page').forEach((e) => e.remove()); textEl.value = ''; setStatus('Cleared.'); refreshButtons();
+};
 textEl.addEventListener('input', refreshButtons);
 
-/* ---------- drag & drop ---------- */
-const exts = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp', '.pdf'];
+/* ---------- drag & drop, paste ---------- */
+const exts = ['.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp', '.gif'];
 window.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('dragging'); });
 window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
 window.addEventListener('drop', async (e) => {
@@ -356,7 +198,7 @@ window.addEventListener('drop', async (e) => {
   for (const file of e.dataTransfer.files) {
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     if (!exts.includes(ext)) { setStatus(`Skipped ${file.name} — not an image or PDF.`, true); told = true; continue; }
-    told = (await addFile({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), ext })) || told;
+    told = (await openDropped(file)) || told;
   }
   if (!told && !pages.every((p) => p.fromPdf)) setStatus(`${pages.length} page(s) ready. Click “Read text”.`);
   refreshButtons();
@@ -364,16 +206,13 @@ window.addEventListener('drop', async (e) => {
 
 // Paste a screenshot straight from the clipboard (⌘V / Ctrl+V) when the text box isn't focused.
 window.addEventListener('paste', async (e) => {
-  if (document.activeElement === textEl) return;
+  if (document.activeElement === textEl || busy) return;
   for (const item of e.clipboardData.items) {
-    if (item.type.startsWith('image/')) {
-      const file = item.getAsFile();
-      const c = document.createElement('canvas');
-      const img = await loadImage(URL.createObjectURL(file));
-      c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0);
-      addPage('Pasted image', c);
-      setStatus('Image pasted. Click “Read text”.');
-    }
+    if (!item.type.startsWith('image/')) continue;
+    const blob = item.getAsFile();
+    const ext = item.type === 'image/jpeg' ? 'jpg' : item.type.split('/')[1] || 'png';
+    addFile(await window.ocr.openDocument(new Uint8Array(await blob.arrayBuffer()), `Pasted image.${ext}`, openOptions()));
+    setStatus('Image pasted. Click “Read text”.');
   }
 });
 

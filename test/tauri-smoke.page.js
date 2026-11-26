@@ -26,7 +26,9 @@
 
     await drop(fixtures + '/typed.pdf');
     let t = text();
-    await check('PDF text read in Rust (crates/thaana-core)', document.body.dataset.pdfReader === 'rust', document.body.dataset.pdfReader);
+    const thumbs = [...document.querySelectorAll('#pages img')].map((i) => i.src);
+    await check('page drawn in Rust (thumbnail from hayro)', thumbs.length === 1 && thumbs[0].startsWith('data:image/jpeg;base64,'), thumbs.length + ' ' + (thumbs[0] || '').slice(0, 40));
+    await check('no PDF.js or JavaScript reader loaded', ![...document.scripts].some((s) => /pdfjs|pdfglyphs|segment|columns/.test(s.src)) && typeof window.pdfjsLib === 'undefined', [...document.scripts].map((s) => s.src).join(' '));
     await check('typed.pdf: paragraph text with all vowel signs', t.includes(spec.paragraphs[0]), t.slice(0, 300));
     await check('typed.pdf: table rows kept as rows', spec.table.every((r) => t.split('\n').includes(r.join('\t'))), t);
 
@@ -41,7 +43,6 @@
     t = text();
     const ocr = t.split('\n\n').slice(1).join('\n');
     await check('Read text (Tesseract in the web view): finished', done && status().startsWith('Done'), status());
-    await check('Scan clean-up ran in Rust (crates/thaana-core)', document.body.dataset.scanPrep === 'rust', document.body.dataset.scanPrep);
     await check('Read text: scanned page read into Thaana', (ocr.match(/[\u0780-\u07B1]/g) || []).length > 200, ocr.slice(0, 300));
 
     for (const f of extra) {

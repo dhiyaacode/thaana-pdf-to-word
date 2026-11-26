@@ -11,14 +11,11 @@
     "tauri": "tauri",
     "start": "tauri dev",
     "build": "tauri build",
-    "test": "node --test test/pdf.test.mjs",
-    "test:core": "cargo test --manifest-path crates/thaana-core/Cargo.toml",
-    "test:parity": "cargo build --release --manifest-path crates/thaana-core/Cargo.toml && node test/parity.mjs && node test/scan-parity.mjs",
+    "test": "cargo test --release --manifest-path crates/thaana-core/Cargo.toml",
     "test:app": "node scripts/vendor.mjs && cargo test --manifest-path src-tauri/Cargo.toml && cargo build --manifest-path src-tauri/Cargo.toml --release --features smoke,tauri/custom-protocol --target-dir src-tauri/target/smoke && node test/tauri-smoke.mjs",
-    "bench:ocr": "node test/ocr-accuracy.mjs"
+    "bench:ocr": "cargo build --release --manifest-path crates/thaana-core/Cargo.toml && node test/ocr-accuracy.mjs"
   },
   "dependencies": {
-    "pdfjs-dist": "^6.5.438",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

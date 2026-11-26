@@ -1,7 +1,7 @@
-//! Prints what the Rust reader gets from PDFs, as JSON (used by test/parity.mjs), or as text.
+//! Prints what the reader gets from PDFs, as text or as JSON (test/ocr-accuracy.mjs uses that).
 //!   thaana-pdf [--json] [--keep-arabic] [--no-join] file.pdf ...
 //!   thaana-pdf --glyphs N file.pdf    (raw glyphs of page N)
-//!   thaana-pdf --scan-parity image.gray W H
+//!   thaana-pdf --scan file.pdf|picture [--no-columns]   (how pages would be cut into lines)
 use thaana_core::{ReadOptions, Reader};
 
 fn main() {
@@ -16,19 +16,18 @@ fn main() {
         println!("{}", serde_json::to_string(&pages[n - 1].glyphs).unwrap());
         return;
     }
-    // --scan-parity image.gray W H: the pure scan steps on a raw 8-bit grey image (test/scan-parity.mjs)
-    if let Some(i) = args.iter().position(|a| a == "--scan-parity") {
-        use thaana_core::scan;
-        let (w, h): (usize, usize) = (args[i + 2].parse().unwrap(), args[i + 3].parse().unwrap());
-        let g: Vec<f32> = std::fs::read(&args[i + 1]).unwrap().iter().map(|&b| b as f32).collect();
-        let thr = scan::otsu(&g);
-        let (boxes, pitch) = scan::find_lines(&g, w, h, thr, 0.0, 0.0);
-        let (blocks, letter) = scan::find_blocks(&g, w, h, thr);
-        let (boxes2, pitch2) = scan::find_lines(&g, w, h, thr, 0.0, letter);
-        let ruled = scan::remove_ruling(&g, w, h, thr);
-        let changed: Vec<usize> = (0..g.len()).filter(|&k| ruled[k] != g[k]).collect();
-        println!("{}", serde_json::json!({ "otsu": thr, "pitch": pitch, "boxes": boxes, "blocks": blocks, "letter": letter, "pitch2": pitch2, "boxes2": boxes2,
-            "ruling": { "changed": changed.len(), "sum": changed.iter().map(|&k| k as u64).sum::<u64>() } }));
+    // --scan file.pdf|picture: how each page would be cut into text lines for the reader
+    if let Some(i) = args.iter().position(|a| a == "--scan") {
+        let file = &args[i + 1];
+        let ext = std::path::Path::new(file).extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+        let pages = Reader::new().open(std::fs::read(file).unwrap(), &ext, ReadOptions::default(), false).unwrap();
+        for (n, p) in pages.iter().enumerate() {
+            let Some(g) = p.source.as_ref().and_then(|s| s.for_reading()) else { println!("page {}: cannot be drawn", n + 1); continue };
+            let t = std::time::Instant::now();
+            let prep = thaana_core::scan::prepare(g, 0, true, !flag("--no-columns"));
+            println!("page {}: {} lines, spacing {} px, skew {:.1}, {} ({} ms)", n + 1, prep.lines.len(), prep.pitch, prep.skew,
+                if prep.blk.is_some() { "read as columns" } else { "one column" }, t.elapsed().as_millis());
+        }
         return;
     }
     let reader = Reader::new();

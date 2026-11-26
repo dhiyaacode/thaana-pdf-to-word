@@ -8,13 +8,16 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readPdf } from './run-pdf.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const exe = path.join(here, '..', 'src-tauri', 'target', 'smoke', 'release', process.platform === 'win32' ? 'thaana-pdf-to-word.exe' : 'thaana-pdf-to-word');
 if (!fs.existsSync(exe)) { console.error('Build the test app first: npm run test:app'); process.exit(2); }
+// the Rust library's command-line tool gives the true text of a typed PDF
+const cli = path.join(here, '..', 'crates', 'thaana-core', 'target', 'release', process.platform === 'win32' ? 'thaana-pdf.exe' : 'thaana-pdf');
+if (!fs.existsSync(cli)) { console.error('Build the command-line tool first: cargo build --release --manifest-path crates/thaana-core/Cargo.toml'); process.exit(2); }
+const trueText = (file) => JSON.parse(execFileSync(cli, ['--json', file], { maxBuffer: 1 << 28 }).toString('utf8'))[0].pages.map((p) => p.text).join('\n');
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => (args.find((a) => a.startsWith(`--${name}=`)) || `--${name}=${dflt}`).split('=')[1];
@@ -58,7 +61,7 @@ function runApp(file) {
 console.log(`Newspaper columns: ${columns ? 'on' : 'off'}`);
 console.log('file'.padEnd(28), 'pages', '  time', ' words right', ' ignoring vowel signs', ' characters');
 for (const file of files) {
-  const truth = (await readPdf(file)).map((p) => p.text).join('\n');
+  const truth = trueText(file);
   const g = words(truth);
   if (g.length < 20) { console.log(path.basename(file).padEnd(28), 'has no typed Thaana text to compare with'); continue; }
   const r = await runApp(file);
@@ -69,6 +72,6 @@ for (const file of files) {
   const chars = (ws) => Array.from(ws.join(''));
   console.log(path.basename(file).padEnd(28), String(r.pages).padStart(5), (r.secs.toFixed(1) + ' s').padStart(7),
     pct(lcs(g, o), g.length).padStart(12), pct(lcs(g.map(strip), o.map(strip)), g.length).padStart(21), pct(lcs(chars(g), chars(o)), chars(g).length).padStart(11),
-    `  (${g.length} words; clean-up in ${r.prep})`);
+    `  (${g.length} words)`);
   if (save) fs.writeFileSync(save, r.text);
 }

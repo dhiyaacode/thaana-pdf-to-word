@@ -1,4 +1,4 @@
-//! Conservative repair of Thaana words from PDFs (port of renderer/repair.js): fixes misplaced or
+//! Conservative repair of Thaana words: fixes misplaced or
 //! stray vowel signs (fili) only when the result is a known word. Unknown words are left exactly
 //! as they are.
 

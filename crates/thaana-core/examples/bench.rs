@@ -23,7 +23,7 @@ fn main() {
     let skew = find_skew(&g, thr); lap("find_skew");
     let g = rotate_gray(g, skew); lap("rotate_gray");
     let (b, _) = find_blocks(&g.px, g.w, g.h, thr); lap("find_blocks");
-    let p = prepare(&rgba, w, h, 0, true, true); lap("prepare (all)");
+    let p = prepare(Gray::from_rgba(&rgba, w, h), 0, true, true); lap("prepare (all)");
     println!("{}x{} skew {skew:.1}, {} blocks, {} lines", w, h, b.len(), p.lines.len());
     // line-spacing evidence: autocorrelation of the row ink profile, in units of the letter height
     let (_, letter) = find_blocks(&g.px, g.w, g.h, thr);

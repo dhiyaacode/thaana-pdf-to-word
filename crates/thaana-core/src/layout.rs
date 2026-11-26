@@ -1,6 +1,5 @@
 //! Rebuilds Thaana text lines from the glyphs of a PDF page: vowel signs onto their letters,
-//! right-to-left order, tables from border lines, Arabic handling. A line-for-line port of
-//! `rebuild()` and `findTables()` in renderer/pdfglyphs.js; keep the two in step.
+//! right-to-left order, tables from border lines, Arabic handling.
 
 use crate::text::{is_fili, is_thaana, js_round, js_space, js_trim};
 use std::collections::HashMap;
@@ -43,7 +42,7 @@ pub struct Options {
     pub drop_arabic: bool,
 }
 
-// ---- character classes (same ranges as the JavaScript regexes) ----
+// ---- character classes ----
 fn ign(c: char) -> bool {
     matches!(c, '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
 }
@@ -415,7 +414,7 @@ fn list_number_not_cell(s: &str) -> String {
     }
 }
 
-/// The text lines of one page (port of `rebuild()` in renderer/pdfglyphs.js).
+/// The text lines of one page.
 pub fn rebuild(page: &PageData, opts: Options) -> Vec<String> {
     // one item per character
     let mut items: Vec<Item> = Vec::new();
@@ -470,7 +469,8 @@ pub fn rebuild(page: &PageData, opts: Options) -> Vec<String> {
         let it = &items[k];
         if is_fili(it.c) {
             // A vowel sign drawn with its own advance width: Word does this for the last letter of a
-            // word in justified text, so it is normally a real vowel sign (see the JavaScript notes).
+            // word in justified text, so it is normally a real vowel sign. It only stands for a word space
+            // when the letter before it already has its vowel sign (some generators store the space that way).
             if it.x1 - it.x0 > 0.12 * it.sz {
                 wide.push((k, last));
                 continue;

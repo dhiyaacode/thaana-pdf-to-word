@@ -19,9 +19,9 @@
     const t0 = performance.now();
     $('btnRead').click();
     while (!/^Done|went wrong/.test(status())) await sleep(50);
-    result = { secs: (performance.now() - t0) / 1000, pages, prep: document.body.dataset.scanPrep || 'js', status: status(), text: $('text').value };
+    result = { secs: (performance.now() - t0) / 1000, pages, status: status(), text: $('text').value };
   } catch (e) {
-    result = { secs: 0, pages: 0, prep: '', status: 'error: ' + (e && e.message || e), text: '' };
+    result = { secs: 0, pages: 0, status: 'error: ' + (e && e.message || e), text: '' };
   }
   await invoke('smoke_log', { line: 'BENCH ' + JSON.stringify(result) });
   invoke('smoke_exit', { code: 0 });

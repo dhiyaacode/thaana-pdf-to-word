@@ -1,7 +1,8 @@
 // The bridge between the interface and the Rust side of the app: it defines `window.ocr`.
-// Files, dialogs, clipboard, Word export, labels, the PDF text reader and scan clean-up run in Rust
-// (src-tauri/src/main.rs, crates/thaana-core). Reading the text lines of scans (OCR) runs here in
-// the web view, with Tesseract and the models in vendor/lang.
+// Everything runs in Rust (src-tauri/src/main.rs, crates/thaana-core): opening files and drawing
+// pages, the PDF text reader, scan clean-up, finishing the text, dialogs, clipboard, Word export
+// and labels. The interface refers to pages by number. Only recognising the text lines of scans
+// (OCR) runs here in the web view, with Tesseract and the models in vendor/lang.
 (() => {
   if (window.ocr || !window.__TAURI__) return;
   const { invoke } = window.__TAURI__.core;
@@ -56,47 +57,39 @@
     return scheduler;
   }
 
-  // Symbols a Dhivehi page does not contain (degree, currency, copyright signs, bars, backticks...):
-  // the Thaana model invents them in the wide gaps of justified text. Kept when the page has English.
-  const JUNK = /[\u00A2\u00A3\u00A5-\u00A7\u00A9\u00AB\u00AC\u00AE\u00B0\u00BB\u00BF\u02C6\u201E\u2030\u2039\u203A\u20AC`|~^{}\\]/g;
-
-  // Clean up common OCR noise in Thaana output.
-  const tidy = (text, withEnglish) => (withEnglish ? text : text.replace(JUNK, ' '))
-    .replace(/[\u200E\u200F\u202A-\u202E]/g, '')        // stray direction marks
-    .replace(/[\u064B-\u0652]/g, '')                      // Arabic harakat the model sometimes invents
-    .replace(/ {2,}/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/([\u0780-\u07B1]) ?,/g, '$1\u060C')         // Latin comma after Thaana -> Thaana comma
-    .replace(/([\u0780-\u07B1]) ?\?/g, '$1\u061F')        // Latin ? after Thaana -> Thaana question mark
-    .trim();
-
   let onProgress = () => {};
   const b64ToBlob = (b64) => new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: 'image/png' });
 
+  // A dropped or pasted file goes to Rust as the raw request body. Its name can contain Thaana,
+  // which a request header cannot carry as it is, so the header is percent-encoded.
+  const header = (o) => ({ headers: { 'x-options': encodeURIComponent(JSON.stringify(o)) } });
+
   window.ocr = {
+    // Tesseract's raw text for each line image (base64 PNG); Rust tidies it in finishScan.
     async recognizeLines(lines, withEnglish) {
       const sch = await getScheduler(withEnglish);
       let done = 0;
       return Promise.all(lines.map(async (b64) => {
         const { data } = await sch.addJob('recognize', b64ToBlob(b64));
         onProgress(++done / lines.length);
-        return { text: tidy(data.text, withEnglish).replace(/\n+/g, ' '), confidence: data.confidence };
+        return data.text;
       }));
+    },
+    // Files: { name, pages: [{ id, kind: 'text'|'damaged'|'scan'|'blank', text, thumb, readable }], error }
+    openFiles: (opts) => invoke('open_files', { opts }),
+    openDocument: (bytes, name, opts) => invoke('open_document', bytes, header({ name, ...opts })),
+    forgetPages: (ids) => invoke('pages_forget', { ids }),
+    // A page cut into text lines for the reader: { lines, boxes, pitch, skew, blk }
+    prepareScan: (id, { rotation, enhance, columns }) => invoke('scan_prepare', { id, rotation, enhance, columns }),
+    // The finished text of a page from what the reader recognised on each line
+    finishScan: (f) => invoke('ocr_finish', { f }),
+    prepareLabel: async (id, rotation) => {
+      const [lines, pitch] = await invoke('scan_prepare_label', { id, rotation });
+      return { lines, pitch };
     },
     copy: (text) => invoke('copy_text', { text }),
     saveDocx: (opts) => invoke('save_docx', { opts }),
     saveTxt: (opts) => invoke('save_txt', { opts }),
-    openFiles: () => invoke('open_files'),
-    // Text of every page of a PDF, read in Rust (crates/thaana-core): [{ kind, text }, ...]
-    readPdf: (bytes, opts) => invoke('pdf_read', bytes, { headers: { 'x-options': JSON.stringify(opts) } }),
-    // Scan clean-up and line finding in Rust (crates/thaana-core/src/scan.rs), from the page's RGBA pixels
-    prepareScan: (rgba, opts) => invoke('scan_prepare', new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength), { headers: { 'x-options': JSON.stringify(opts) } }),
-    prepareLabel: async (rgba, opts) => {
-      const [lines, pitch] = await invoke('scan_prepare_label', new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength), { headers: { 'x-options': JSON.stringify(opts) } });
-      return { lines, pitch };
-    },
-    readWords: async () => { try { return await (await fetch(base + 'lang/dhivehi-words.txt')).text(); } catch { return ''; } },
     labelSave: (o) => invoke('label_save', { o }),
     labelUndo: (id) => invoke('label_undo', { id }),
     labelShow: () => invoke('label_show'),
