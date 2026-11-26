@@ -80,10 +80,29 @@ export function rotateGray(g, w, h, deg) {
   return grayFromCanvas(c);
 }
 
-function linePitch(p) {
+// letter: the typical letter height in pixels (from findBlocks), 0 if not known. Thaana lines, with
+// their vowel signs above and below, are 2.5 to 9 letter heights apart. Looking only there keeps
+// out the two false answers: the gap between the vowel-sign rows and the letters (under 2.5), and
+// repeats of the page's larger structure (over 9).
+function linePitch(p, letter = 0) {
   const n = p.length; let mean = 0; for (const v of p) mean += v; mean /= n;
   const q = p.map((v) => v - mean); let a0 = 0; for (const v of q) a0 += v * v; a0 = a0 || 1;
   const ac = (lag) => { let s = 0; for (let i = 0; i + lag < n; i++) s += q[i] * q[i + lag]; return s / a0; };
+  if (letter > 0) {
+    const lo = Math.max(8, Math.ceil(2.5 * letter)), hi = Math.min(Math.floor(n / 2), Math.floor(9 * letter));
+    if (hi > lo) {
+      const acs = new Float64Array(hi + 1); let best = -Infinity, P = lo;
+      for (let lag = lo; lag <= hi; lag++) { const v = acs[lag] = ac(lag); if (v > best) { best = v; P = lag; } }
+      // The strongest repeat can be every 2nd or 3rd line: take the shortest one nearly as strong.
+      for (const k of [3, 2]) {
+        const c = Math.round(P / k); if (c - 2 < lo) continue;
+        let m = -Infinity, at = c;
+        for (let l = c - 2; l <= c + 2; l++) if (acs[l] > m) { m = acs[l]; at = l; }
+        if (m >= 0.8 * best) return at;
+      }
+      return P;
+    }
+  }
   let dip = 8; while (dip < n / 2 && ac(dip) >= 0) dip++;
   const hi = Math.min(Math.floor(n / 2), dip * 6 + 20);
   let best = -Infinity, P = 40;
@@ -93,10 +112,11 @@ function linePitch(p) {
 
 // Returns text line boxes {l,t,r,b} in reading order (top to bottom), plus the line pitch.
 // pitchHint: line spacing measured elsewhere (a block of one or two lines cannot show its own).
-export function findLines(g, w, h, thr, pitchHint = 0) {
+// letter: typical letter height, to keep the measured spacing in a sensible range (see linePitch).
+export function findLines(g, w, h, thr, pitchHint = 0, letter = 0) {
   const p = new Float64Array(h);
   for (let y = 0; y < h; y++) { let s = 0; const o = y * w; for (let x = 0; x < w; x++) if (g[o + x] < thr) s++; p[y] = s; }
-  const P = pitchHint || linePitch(Array.from(p));
+  const P = pitchHint || linePitch(Array.from(p), letter);
   const k = Math.max(3, Math.round(P * 0.45));
   const win = Array.from({ length: k }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (k - 1 || 1)));
   const ws = win.reduce((a, b) => a + b, 0) || 1;

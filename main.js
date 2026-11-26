@@ -14,7 +14,7 @@ const THAANA_MODEL = ['divx', 'div'].find((m) => fs.existsSync(path.join(LANG_DI
 let win;
 let scheduler = null;
 let schedulerLangs = '';
-const N_WORKERS = Math.max(1, Math.min(4, os.cpus().length - 1));
+const N_WORKERS = Math.max(1, Math.min(8, os.cpus().length - 1));   // one reader per core, leaving one free
 
 async function getScheduler(withEnglish) {
   if (!THAANA_MODEL) throw new Error(`No Thaana reading model found. Put div.traineddata in ${LANG_DIR}.`);
@@ -29,7 +29,7 @@ async function getScheduler(withEnglish) {
       gzip: false,
       cacheMethod: 'none',
     });
-    await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, preserve_interword_spaces: '1' });
+    await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, preserve_interword_spaces: '0' });   // normal spacing reads Thaana words better (test/ocr-accuracy.mjs)
     return w;
   }));
   workers.forEach((w) => scheduler.addWorker(w));
@@ -54,9 +54,13 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
+// Symbols a Dhivehi page does not contain (degree, currency, copyright signs, bars, backticks...):
+// the Thaana model invents them in the wide gaps of justified text. Kept when the page has English.
+const JUNK = /[\u00A2\u00A3\u00A5-\u00A7\u00A9\u00AB\u00AC\u00AE\u00B0\u00BB\u00BF\u02C6\u201E\u2030\u2039\u203A\u20AC`|~^{}\\]/g;
+
 // Clean up common OCR noise in Thaana output.
-function tidy(text) {
-  return text
+function tidy(text, withEnglish) {
+  return (withEnglish ? text : text.replace(JUNK, ' '))
     .replace(/[‎‏‪-‮]/g, '')   // stray direction marks
     .replace(/[ً-ْ]/g, '')               // Arabic harakat the model sometimes invents
     .replace(/ {2,}/g, ' ')
@@ -75,7 +79,7 @@ ipcMain.handle('ocr-lines', async (_e, { lines, withEnglish }) => {
     const { data } = await sch.addJob('recognize', Buffer.from(b64, 'base64'));
     done++;
     if (win) win.webContents.send('ocr-progress', done / lines.length);
-    return { text: tidy(data.text).replace(/\n+/g, ' '), confidence: data.confidence };
+    return { text: tidy(data.text, withEnglish).replace(/\n+/g, ' '), confidence: data.confidence };
   }));
   return results;
 });

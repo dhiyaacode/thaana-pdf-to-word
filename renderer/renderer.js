@@ -152,35 +152,39 @@ function prepare(page, enhance) {
   const thr = otsu(g);
   const skew = findSkew(g, w, h, thr);
   g = rotateGray(g, w, h, skew);
-  // Newspapers / magazines: split into columns first (right-to-left), then find lines in each block.
-  let blocks = [];
-  try { blocks = $('optColumns') && $('optColumns').checked ? findBlocks(g, w, h, thr) : []; } catch (e) { console.error(e); }
-  if (blocks.length > 1) {
+  // Newspapers / magazines: read column by column (right to left), but only when the page really
+  // has columns: two tall text blocks side by side, "tall" being 15 letter heights (about four
+  // lines) or more. A letterhead, a label beside a paragraph or a single line are not columns:
+  // such pages are read as one column, where the whole page shows the line spacing reliably.
+  // (findBlocks always runs: it also measures the letter height that line finding needs.)
+  let blocks = [], letter = 0;
+  try { const fb = findBlocks(g, w, h, thr); letter = fb.letter || 0; if ($('optColumns') && $('optColumns').checked) blocks = fb; } catch (e) { console.error(e); }
+  const L = letter || 15;
+  const tall = (b) => b.b - b.t >= 15 * L;
+  const beside = (a, b) => (a.r <= b.l || b.r <= a.l) && Math.min(a.b, b.b) - Math.max(a.t, b.t) >= 0.5 * Math.min(a.b - a.t, b.b - b.t);
+  const hasColumns = blocks.some((a) => tall(a) && blocks.some((b) => a !== b && tall(b) && beside(a, b)));
+  if (hasColumns) {
     const subs = blocks.map((bl, bi) => {
       const bw = bl.r - bl.l, bh = bl.b - bl.t; if (bw < 20 || bh < 10) return null;
       const sub = new Float32Array(bw * bh);
       for (let y = 0; y < bh; y++) sub.set(g.subarray((bl.t + y) * w + bl.l, (bl.t + y) * w + bl.r), y * bw);
-      return { bl, bi, bw, bh, sub, own: findLines(sub, bw, bh, thr) };
+      return { bl, bi, bw, bh, sub, own: findLines(sub, bw, bh, thr, 0, letter) };
     }).filter(Boolean);
-    // A block of one or two lines cannot show its own line spacing (it would cut the vowel-sign rows
-    // off as separate lines), and a picture block shows a meaningless one. A text line spacing is
-    // 1.5 to 6 letter heights: take the median of the blocks whose own spacing is like that (and that
-    // are tall enough to show it). If there are none, the blocks are lines stacked in one column and
-    // the whole page shows the spacing best.
-    const L = blocks.letter || 15;
-    const plausible = (s) => s.own.pitch >= 1.5 * L && s.own.pitch <= 6 * L && s.bh >= 2.5 * s.own.pitch;
-    const good = subs.filter(plausible).map((s) => s.own.pitch).sort((a, b) => a - b);
-    const ref = good.length ? good[good.length >> 1] : findLines(g, w, h, thr).pitch;
+    // A block of one or two lines (a headline, a caption) cannot show its own line spacing: it
+    // would cut the vowel-sign rows off as separate lines. It gets the spacing of the columns
+    // (the median of the tall blocks).
+    const good = subs.filter((s) => tall(s.bl)).map((s) => s.own.pitch).sort((a, b) => a - b);
+    const ref = good.length ? good[good.length >> 1] : findLines(g, w, h, thr, 0, letter).pitch;
     const boxes = [], lines = [], blk = []; let pitch = 0;
     subs.forEach((s) => {
       const { bl, bi, bw, bh, sub, own } = s;
-      const r = bh >= 4 * ref && plausible(s) ? own : findLines(sub, bw, bh, thr, ref);
+      const r = tall(bl) && bh >= 4 * ref ? own : findLines(sub, bw, bh, thr, ref);
       pitch = pitch || r.pitch;
       r.boxes.forEach((b) => { lines.push(cropToPng(sub, bw, b, r.pitch)); boxes.push({ l: b.l + bl.l, t: b.t + bl.t, r: b.r + bl.l, b: b.b + bl.t }); blk.push(bi); });
     });
     return { lines, boxes, pitch: pitch || 45, skew, blk };
   }
-  const { boxes, pitch } = findLines(g, w, h, thr);
+  const { boxes, pitch } = findLines(g, w, h, thr, 0, letter);
   const lines = boxes.map((b) => cropToPng(g, w, b, pitch));
   return { lines, boxes, pitch, skew };
 }
@@ -249,7 +253,9 @@ async function readAll() {
       setStatus(pageIndex === 0 && !window.__warm ? 'Starting the reader (first time takes a few seconds)…' : `Reading page ${pageIndex + 1} of ${pages.length} (${prep.lines.length} lines)…`);
       const results = await window.ocr.recognizeLines(prep.lines, english);
       window.__warm = true;
-      page.text = assemble(results, prep.boxes, prep.pitch, joinParas, prep.blk);
+      // Dictionary repair, as for typed PDFs: joins words the reader split and fixes vowel signs,
+      // only where the result is a known word.
+      page.text = (await getRepairer()).fixText(assemble(results, prep.boxes, prep.pitch, joinParas, prep.blk));
       page.el.className = 'page done';
       out.push(page.text);
       textEl.value = out.filter(Boolean).join('\n\n');

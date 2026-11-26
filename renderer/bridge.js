@@ -29,7 +29,7 @@
     document.head.appendChild(s);
   }));
 
-  const N_WORKERS = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+  const N_WORKERS = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));   // one reader per core, leaving one free
   let scheduler = null, schedulerLangs = '';
   async function getScheduler(withEnglish) {
     const m = await getModel();
@@ -48,7 +48,7 @@
         gzip: false,
         cacheMethod: 'none',
       });
-      await w.setParameters({ tessedit_pageseg_mode: T.PSM.SINGLE_LINE, preserve_interword_spaces: '1' });
+      await w.setParameters({ tessedit_pageseg_mode: T.PSM.SINGLE_LINE, preserve_interword_spaces: '0' });   // normal spacing reads Thaana words better (test/ocr-accuracy.mjs)
       return w;
     }));
     workers.forEach((w) => scheduler.addWorker(w));
@@ -56,8 +56,12 @@
     return scheduler;
   }
 
+  // Symbols a Dhivehi page does not contain (degree, currency, copyright signs, bars, backticks...):
+  // the Thaana model invents them in the wide gaps of justified text. Kept when the page has English.
+  const JUNK = /[\u00A2\u00A3\u00A5-\u00A7\u00A9\u00AB\u00AC\u00AE\u00B0\u00BB\u00BF\u02C6\u201E\u2030\u2039\u203A\u20AC`|~^{}\\]/g;
+
   // Clean up common OCR noise in Thaana output (same as main.js in the Electron version).
-  const tidy = (text) => text
+  const tidy = (text, withEnglish) => (withEnglish ? text : text.replace(JUNK, ' '))
     .replace(/[\u200E\u200F\u202A-\u202E]/g, '')        // stray direction marks
     .replace(/[\u064B-\u0652]/g, '')                      // Arabic harakat the model sometimes invents
     .replace(/ {2,}/g, ' ')
@@ -77,7 +81,7 @@
       return Promise.all(lines.map(async (b64) => {
         const { data } = await sch.addJob('recognize', b64ToBlob(b64));
         onProgress(++done / lines.length);
-        return { text: tidy(data.text).replace(/\n+/g, ' '), confidence: data.confidence };
+        return { text: tidy(data.text, withEnglish).replace(/\n+/g, ' '), confidence: data.confidence };
       }));
     },
     copy: (text) => invoke('copy_text', { text }),

@@ -34,13 +34,14 @@ open(sys.argv[2], 'wb').write(im.tobytes()); print(im.width, im.height)`, img, r
   const blocks = fb.map((b) => ({ l: b.l, t: b.t, r: b.r, b: b.b, kind: b.kind, lines: b.lines ?? 0 }));
   const ruled = removeRuling(g, w, h, thr);
   let changed = 0, sum = 0; for (let k = 0; k < g.length; k++) if (ruled[k] !== g[k]) { changed++; sum += k; }
-  const js = { otsu: thr, pitch, boxes, blocks, letter, ruling: { changed, sum } };
+  const guided = findLines(g, w, h, thr, 0, letter);   // spacing search guided by the letter height
+  const js = { otsu: thr, pitch, boxes, blocks, letter, pitch2: guided.pitch, boxes2: guided.boxes, ruling: { changed, sum } };
   const rs = JSON.parse(execFileSync(exe, ['--scan-parity', raw, String(w), String(h)]).toString());
   const name = `${path.basename(img)} at ${w}x${h}`;
   const diffs = Object.keys(js).filter((k) => canon(js[k]) !== canon(rs[k]));
   n++;
   if (diffs.length) console.log(`FAIL  ${name}: ${diffs.map((k) => `${k}\n      JS:   ${JSON.stringify(js[k]).slice(0, 300)}\n      Rust: ${JSON.stringify(rs[k]).slice(0, 300)}`).join('\n  ')}`);
-  else { ok++; console.log(`PASS  ${name}: threshold ${thr}, ${boxes.length} lines (pitch ${pitch}), ${blocks.length} blocks, ${changed} ruled pixels`); }
+  else { ok++; console.log(`PASS  ${name}: threshold ${thr}, ${guided.boxes.length} lines (spacing ${guided.pitch} px = ${(guided.pitch / (letter || 1)).toFixed(1)} letter heights), ${blocks.length} blocks, ${changed} ruled pixels`); }
 }
 console.log(`\n${ok}/${n} identical in JavaScript and Rust`);
 process.exit(ok === n ? 0 : 1);

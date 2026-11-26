@@ -25,4 +25,15 @@ fn main() {
     let (b, _) = find_blocks(&g.px, g.w, g.h, thr); lap("find_blocks");
     let p = prepare(&rgba, w, h, 0, true, true); lap("prepare (all)");
     println!("{}x{} skew {skew:.1}, {} blocks, {} lines", w, h, b.len(), p.lines.len());
+    // line-spacing evidence: autocorrelation of the row ink profile, in units of the letter height
+    let (_, letter) = find_blocks(&g.px, g.w, g.h, thr);
+    let prof: Vec<f64> = (0..g.h).map(|y| g.px[y * g.w..(y + 1) * g.w].iter().filter(|&&v| v < thr).count() as f64).collect();
+    let mean = prof.iter().sum::<f64>() / prof.len() as f64;
+    let q: Vec<f64> = prof.iter().map(|v| v - mean).collect();
+    let a0: f64 = q.iter().map(|v| v * v).sum();
+    let ac = |lag: usize| (0..q.len() - lag).map(|i| q[i] * q[i + lag]).sum::<f64>() / a0;
+    let acs: Vec<f64> = (0..(14.0 * letter) as usize).map(ac).collect();
+    let mut peaks: Vec<(usize, f64)> = (2..acs.len() - 1).filter(|&k| acs[k] > acs[k - 1] && acs[k] >= acs[k + 1] && acs[k] > 0.05).map(|k| (k, acs[k])).collect();
+    peaks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    println!("letter {letter}; strongest repeats: {}", peaks.iter().take(6).map(|(k, v)| format!("{k}px={:.1}L ({v:.2})", *k as f64 / letter)).collect::<Vec<_>>().join(", "));
 }

@@ -22,11 +22,12 @@ fn main() {
         let (w, h): (usize, usize) = (args[i + 2].parse().unwrap(), args[i + 3].parse().unwrap());
         let g: Vec<f32> = std::fs::read(&args[i + 1]).unwrap().iter().map(|&b| b as f32).collect();
         let thr = scan::otsu(&g);
-        let (boxes, pitch) = scan::find_lines(&g, w, h, thr, 0.0);
+        let (boxes, pitch) = scan::find_lines(&g, w, h, thr, 0.0, 0.0);
         let (blocks, letter) = scan::find_blocks(&g, w, h, thr);
+        let (boxes2, pitch2) = scan::find_lines(&g, w, h, thr, 0.0, letter);
         let ruled = scan::remove_ruling(&g, w, h, thr);
         let changed: Vec<usize> = (0..g.len()).filter(|&k| ruled[k] != g[k]).collect();
-        println!("{}", serde_json::json!({ "otsu": thr, "pitch": pitch, "boxes": boxes, "blocks": blocks, "letter": letter,
+        println!("{}", serde_json::json!({ "otsu": thr, "pitch": pitch, "boxes": boxes, "blocks": blocks, "letter": letter, "pitch2": pitch2, "boxes2": boxes2,
             "ruling": { "changed": changed.len(), "sum": changed.iter().map(|&k| k as u64).sum::<u64>() } }));
         return;
     }

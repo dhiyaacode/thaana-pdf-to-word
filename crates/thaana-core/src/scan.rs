@@ -298,7 +298,11 @@ pub struct LineBox {
     pub b: usize,
 }
 
-fn line_pitch(p: &[f64]) -> f64 {
+/// `letter`: the typical letter height in pixels (from find_blocks), 0 if not known. Thaana lines,
+/// with their vowel signs above and below, are 2.5 to 9 letter heights apart. Looking only there
+/// keeps out the two false answers: the gap between the vowel-sign rows and the letters (under 2.5),
+/// and repeats of the page's larger structure (over 9).
+fn line_pitch(p: &[f64], letter: f64) -> f64 {
     let n = p.len();
     let mean = p.iter().sum::<f64>() / n as f64;
     let q: Vec<f64> = p.iter().map(|v| v - mean).collect();
@@ -307,6 +311,39 @@ fn line_pitch(p: &[f64]) -> f64 {
         a0 = 1.0;
     }
     let ac = |lag: usize| -> f64 { (0..n.saturating_sub(lag)).map(|i| q[i] * q[i + lag]).sum::<f64>() / a0 };
+    if letter > 0.0 {
+        let lo = ((2.5 * letter).ceil() as usize).max(8);
+        let hi = (n / 2).min((9.0 * letter).floor() as usize);
+        if hi > lo {
+            let mut acs = vec![0f64; hi + 1];
+            let (mut best, mut pp) = (f64::NEG_INFINITY, lo);
+            for lag in lo..=hi {
+                acs[lag] = ac(lag);
+                if acs[lag] > best {
+                    best = acs[lag];
+                    pp = lag;
+                }
+            }
+            // The strongest repeat can be every 2nd or 3rd line: take the shortest one nearly as strong.
+            for k in [3.0, 2.0] {
+                let c = js_round(pp as f64 / k) as usize;
+                if c < lo + 2 {
+                    continue;
+                }
+                let (mut m, mut at) = (f64::NEG_INFINITY, c);
+                for l in c - 2..=c + 2 {
+                    if acs[l] > m {
+                        m = acs[l];
+                        at = l;
+                    }
+                }
+                if m >= 0.8 * best {
+                    return at as f64;
+                }
+            }
+            return pp as f64;
+        }
+    }
     let mut dip = 8usize;
     while (dip as f64) < n as f64 / 2.0 && ac(dip) >= 0.0 {
         dip += 1;
@@ -325,9 +362,10 @@ fn line_pitch(p: &[f64]) -> f64 {
 
 /// Text line boxes in reading order (top to bottom), plus the line pitch (segment.js findLines()).
 /// `pitch_hint`: line spacing measured elsewhere (a block of one or two lines cannot show its own).
-pub fn find_lines(g: &[f32], w: usize, h: usize, thr: f32, pitch_hint: f64) -> (Vec<LineBox>, f64) {
+/// `letter`: typical letter height, to keep the measured spacing in a sensible range (see line_pitch).
+pub fn find_lines(g: &[f32], w: usize, h: usize, thr: f32, pitch_hint: f64, letter: f64) -> (Vec<LineBox>, f64) {
     let p: Vec<f64> = (0..h).map(|y| g[y * w..(y + 1) * w].iter().filter(|&&v| v < thr).count() as f64).collect();
-    let pp = if pitch_hint != 0.0 { pitch_hint } else { line_pitch(&p) };
+    let pp = if pitch_hint != 0.0 { pitch_hint } else { line_pitch(&p, letter) };
     let k = (js_round(pp * 0.45) as usize).max(3);
     let win: Vec<f64> = (0..k).map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / (if k > 1 { k - 1 } else { 1 }) as f64).cos()).collect();
     let mut ws: f64 = win.iter().sum();
@@ -608,7 +646,14 @@ pub fn find_blocks(g: &[f32], w: usize, h: usize, thr: f32) -> (Vec<Block>, f64)
         let m = medh(x0, y0, x1, y1);
         let (gv, gh) = ((14.0 * k).max(0.9 * m), (12.0 * k).max(m));
         let hg: Vec<(usize, usize)> = runs(&row_e).into_iter().filter(|r| (r.1 - r.0) as f64 >= gh && r.0 > 0 && r.1 < hh).collect();
-        let vg: Vec<(usize, usize)> = runs(&col_e).into_iter().filter(|r| (r.1 - r.0) as f64 >= gv && r.0 > 0 && r.1 < ww).collect();
+        // A column gap only counts where the region is several text lines tall. In one line of text
+        // (about 2.5 letter heights with its vowel signs) the same gap is just the space between
+        // two words of justified text, and cutting there would send single words to the reader.
+        let vg: Vec<(usize, usize)> = if hh as f64 >= 5.0 * m {
+            runs(&col_e).into_iter().filter(|r| (r.1 - r.0) as f64 >= gv && r.0 > 0 && r.1 < ww).collect()
+        } else {
+            vec![]
+        };
         if hg.is_empty() && vg.is_empty() {
             leaves.push([x0, y0, x1, y1]);
             return;
@@ -792,9 +837,21 @@ pub fn prepare(rgba: &[u8], w: usize, h: usize, rotation: i32, enhance: bool, co
     let skew = find_skew(&g, thr);
     let g = rotate_gray(g, skew);
     let (w, h) = (g.w, g.h);
-    // Newspapers / magazines: split into columns first (right-to-left), then find lines in each block.
-    let (blocks, letter) = if columns { find_blocks(&g.px, w, h, thr) } else { (vec![], 0.0) };
-    if blocks.len() > 1 {
+    // Newspapers / magazines: read column by column (right to left), but only when the page really
+    // has columns: two tall text blocks side by side, "tall" being 15 letter heights (about four
+    // lines) or more. A letterhead, a label beside a paragraph or a single line are not columns:
+    // such pages are read as one column, where the whole page shows the line spacing reliably.
+    // (find_blocks always runs: it also measures the letter height that line finding needs.)
+    let (blocks, letter) = find_blocks(&g.px, w, h, thr);
+    let blocks = if columns { blocks } else { vec![] };
+    let l = if letter > 0.0 { letter } else { 15.0 };
+    let tall = |b: &Block| (b.b - b.t) as f64 >= 15.0 * l;
+    let beside = |a: &Block, b: &Block| {
+        let overlap = a.b.min(b.b) as f64 - a.t.max(b.t) as f64;
+        (a.r <= b.l || b.r <= a.l) && overlap >= 0.5 * (a.b - a.t).min(b.b - b.t) as f64
+    };
+    let has_columns = blocks.iter().enumerate().any(|(i, a)| tall(a) && blocks.iter().enumerate().any(|(j, b)| i != j && tall(b) && beside(a, b)));
+    if has_columns {
         struct Sub {
             bl: Block,
             bi: usize,
@@ -807,23 +864,19 @@ pub fn prepare(rgba: &[u8], w: usize, h: usize, rotation: i32, enhance: bool, co
             .filter(|(_, bl)| bl.r - bl.l >= 20 && bl.b - bl.t >= 10)
             .map(|(bi, bl)| {
                 let img = g.crop(&LineBox { l: bl.l, t: bl.t, r: bl.r, b: bl.b });
-                let own = find_lines(&img.px, img.w, img.h, thr, 0.0);
+                let own = find_lines(&img.px, img.w, img.h, thr, 0.0, letter);
                 Sub { bl: *bl, bi, img, own }
             })
             .collect();
-        // A block of one or two lines cannot show its own line spacing (it would cut the vowel-sign
-        // rows off as separate lines), and a picture block shows a meaningless one. A text line
-        // spacing is 1.5 to 6 letter heights: take the median of the blocks whose own spacing is like
-        // that (and that are tall enough to show it). If there are none, the blocks are lines stacked
-        // in one column and the whole page shows the spacing best.
-        let l = if letter > 0.0 { letter } else { 15.0 };
-        let plausible = |s: &Sub| s.own.1 >= 1.5 * l && s.own.1 <= 6.0 * l && s.img.h as f64 >= 2.5 * s.own.1;
-        let mut good: Vec<f64> = subs.iter().filter(|s| plausible(s)).map(|s| s.own.1).collect();
+        // A block of one or two lines (a headline, a caption) cannot show its own line spacing: it
+        // would cut the vowel-sign rows off as separate lines. It gets the spacing of the columns
+        // (the median of the tall blocks).
+        let mut good: Vec<f64> = subs.iter().filter(|s| tall(&s.bl)).map(|s| s.own.1).collect();
         good.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let reference = if good.is_empty() { find_lines(&g.px, w, h, thr, 0.0).1 } else { good[good.len() >> 1] };
+        let reference = if good.is_empty() { find_lines(&g.px, w, h, thr, 0.0, letter).1 } else { good[good.len() >> 1] };
         let (mut boxes, mut lines, mut blk, mut pitch) = (vec![], vec![], vec![], 0f64);
         for s in &subs {
-            let r = if s.img.h as f64 >= 4.0 * reference && plausible(s) { s.own.clone() } else { find_lines(&s.img.px, s.img.w, s.img.h, thr, reference) };
+            let r = if tall(&s.bl) && s.img.h as f64 >= 4.0 * reference { s.own.clone() } else { find_lines(&s.img.px, s.img.w, s.img.h, thr, reference, letter) };
             if pitch == 0.0 {
                 pitch = r.1;
             }
@@ -835,7 +888,7 @@ pub fn prepare(rgba: &[u8], w: usize, h: usize, rotation: i32, enhance: bool, co
         }
         return Prepared { lines, boxes, pitch: if pitch != 0.0 { pitch } else { 45.0 }, skew, blk: Some(blk) };
     }
-    let (boxes, pitch) = find_lines(&g.px, w, h, thr, 0.0);
+    let (boxes, pitch) = find_lines(&g.px, w, h, thr, 0.0, letter);
     let lines = boxes.iter().map(|b| crop_to_png(&g, b, pitch)).collect();
     Prepared { lines, boxes, pitch, skew, blk: None }
 }
@@ -851,7 +904,7 @@ pub fn prepare_label(rgba: &[u8], w: usize, h: usize, rotation: i32) -> (Vec<(Ve
     let skew = find_skew(&g, thr);
     let g = rotate_gray(g, skew);
     let gc = Gray { w: g.w, h: g.h, px: remove_ruling(&g.px, g.w, g.h, thr) };
-    let (boxes, pitch) = find_lines(&gc.px, gc.w, gc.h, thr, 0.0);
+    let (boxes, pitch) = find_lines(&gc.px, gc.w, gc.h, thr, 0.0, 0.0);
     (boxes.iter().map(|b| (g.crop(b).png(), gc.crop(b).png())).collect(), pitch)
 }
 

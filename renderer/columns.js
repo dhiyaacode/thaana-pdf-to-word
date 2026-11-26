@@ -64,7 +64,7 @@ export function findBlocks(g, w, h, thr) {
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < x0 || x > x1 || y < y0 || y > y1) raw[y * w + x] = 0;
     } }
   const cc = components(raw, w, h);
-  if (cc.length < 20) return [{ l: 0, t: 0, r: w, b: h, kind: 'text' }];
+  if (cc.length < 20) { const one = [{ l: 0, t: 0, r: w, b: h, kind: 'text' }]; one.letter = 0; return one; }   // too little ink to measure
   const medh = (x0, y0, x1, y1) => {
     const hs = [];
     for (const c of cc) if (c[0] >= x0 && c[0] + c[2] <= x1 && c[1] >= y0 && c[1] + c[3] <= y1) hs.push(c[3]);
@@ -91,7 +91,10 @@ export function findBlocks(g, w, h, thr) {
     const m = medh(x0, y0, x1, y1);
     const gv = Math.max(14 * k, 0.9 * m), gh = Math.max(12 * k, 1.0 * m);
     const hg = runs(rowE, H).filter((r) => r[1] - r[0] >= gh && r[0] > 0 && r[1] < H);
-    const vg = runs(colE, W).filter((r) => r[1] - r[0] >= gv && r[0] > 0 && r[1] < W);
+    // A column gap only counts where the region is several text lines tall. In one line of text
+    // (about 2.5 letter heights with its vowel signs) the same gap is just the space between two
+    // words of justified text, and cutting there would send single words to the reader.
+    const vg = H >= 5 * m ? runs(colE, W).filter((r) => r[1] - r[0] >= gv && r[0] > 0 && r[1] < W) : [];
     if (!hg.length && !vg.length) { leaves.push([x0, y0, x1, y1]); return; }
     const big = (a) => a.reduce((b, r) => (!b || r[1] - r[0] > b[1] - b[0] ? r : b), null);
     const bh = big(hg), bv = big(vg);
