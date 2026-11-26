@@ -1,7 +1,7 @@
 {
   "name": "thaana-pdf-to-word",
   "productName": "Thaana PDF to Word",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Turn Dhivehi (Thaana) PDFs and scans into editable text and Word files.",
   "author": "Thaana PDF to Word",
   "license": "Apache-2.0",

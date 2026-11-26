@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Thaana PDF to Word - free for Dhivehi teachers</title>
-<meta name="description" content="Free app that turns Dhivehi (Thaana) PDFs into clean text and Word files, with no scrambled letters. Windows and Mac.">
+<meta name="description" content="Free app that turns Dhivehi (Thaana) PDFs, scans and photos into clean text and Word files, with no scrambled letters. Windows and Mac.">
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Helvetica,Arial,sans-serif;color:#1d2433;line-height:1.55;background:#f4f7fb}
 header{background:linear-gradient(135deg,#0aa5c0,#1b6ed6 50%,#7a3fd1);color:#fff;text-align:center;padding:56px 20px 70px}
@@ -13,11 +13,12 @@ main{max-width:860px;margin:-34px auto 40px;padding:0 18px}
 .card{background:#fff;border-radius:16px;padding:24px 28px;margin:18px 0;box-shadow:0 4px 18px rgba(20,60,120,.1)}
 h2{margin:0 0 10px;color:#14507a}ul{padding-left:22px}li{margin:6px 0}
 .warn{background:#fff6e5;border-left:5px solid #d08a00}
+.new{border-left:5px solid #1b6ed6}
 footer{text-align:center;color:#667;padding:20px;font-size:14px}
 </style></head><body>
 <header><span class="tag">100% FREE</span>
 <h1>Thaana PDF to Word</h1>
-<p>Turn Dhivehi PDFs into clean text and Word files, with no scrambled letters or misplaced fili. Made for teachers.</p>
+<p>Turn Dhivehi PDFs, scans and photos into clean text and Word files, with no scrambled letters or misplaced fili. Made for teachers.</p>
 <a class="btn" id="dl" href="#">Download (Windows &amp; Mac)</a>
 <a class="btn alt" href="Thaana-PDF-to-Word-User-Manual.pdf">User manual (PDF)</a></header>
 <main>
@@ -25,17 +26,24 @@ footer{text-align:center;color:#667;padding:20px;font-size:14px}
 <li>Opens typed Dhivehi PDFs and puts every letter and fili in the right order</li>
 <li>Copy and paste into Word, or save a ready Word file (right-to-left, justified)</li>
 <li>Tables stay tables, numbered lists stay lists</li>
-<li>Works on Windows and Mac. Everything stays on your computer, and nothing is uploaded</li></ul></div>
+<li>Reads scans and photos of printed pages (PNG, JPEG, TIFF and more), and newspaper pages column by column</li>
+<li>Works on Windows and Mac. Everything stays on your computer, nothing is uploaded, and no internet is needed</li></ul></div>
+<div class="card new"><h2>New in version 0.4</h2><ul>
+<li><b>Much smaller:</b> the Windows download is about 10 MB instead of about 120 MB</li>
+<li><b>Faster:</b> PDFs open almost instantly, and scans are read about twice as fast</li>
+<li><b>Reads scans far better:</b> on a clean printed page, about 94% of the letters and half of the words come out exactly right (it was about 60% and 12%)</li>
+<li><b>Tables:</b> a sentence that wraps inside a table cell now stays in that cell</li>
+<li><b>Fewer lost letters:</b> the last fili of words, Dhivehi commas (&#x060C;) and Arabic words inside Dhivehi sentences are no longer dropped</li></ul></div>
 <div class="card"><h2>How to get it</h2><ol>
 <li>Click <b>Download</b> and open the newest release.</li>
-<li><b>Windows:</b> download the <code>setup.exe</code> file and run it. It is small (about 9 MB).</li>
+<li><b>Windows:</b> download the <code>setup.exe</code> file and run it. It is small (about 10 MB).</li>
 <li><b>Mac:</b> choose the <code>.dmg</code> marked <b>aarch64</b> for Apple-chip Macs (M1 and later) or <b>x64</b> for Intel Macs. Open it and drag the app into Applications.</li></ol></div>
 <div class="card warn"><h2>The first time you open it</h2>
 <p>The app is free and not "signed", so your computer shows a warning once. It is not a virus.</p>
 <ul><li><b>Windows:</b> "Windows protected your PC" - click <b>More info</b>, then <b>Run anyway</b>.</li>
 <li><b>Mac:</b> open <b>System Settings &rarr; Privacy &amp; Security</b> and click <b>Open Anyway</b>.</li></ul></div>
 <div class="card"><h2>Beta - what to expect</h2>
-<p>Typed PDFs work very well. Reading scans, photos and newspaper columns is experimental, so always check the result. Handwriting is not supported yet.</p></div>
+<p>Typed PDFs work very well: their text comes out exactly. Scans and photos are read one page in about a second, but most pages still have some wrong or missing fili, so always check the result before you use it. Handwriting is not supported yet.</p></div>
 <div class="card"><h2>Feedback</h2><p>If a PDF converts badly, tell us on the <a id="iss" href="#">GitHub page</a> (only share files that are safe to share). Real examples make the app better.</p></div>
 </main>
 <footer>Thaana PDF to Word &middot; free and open source (Apache 2.0)</footer>

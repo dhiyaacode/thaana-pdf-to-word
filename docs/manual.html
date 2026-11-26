@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- Source of docs/Thaana-PDF-to-Word-User-Manual.pdf. To update the PDF after editing, run
+     node scripts/manual.mjs   (prints this page to PDF with Microsoft Edge) -->
+<html lang="en"><head><meta charset="utf-8">
+<title>Thaana PDF to Word - User manual</title>
+<style>
+@page { size: A4; margin: 18mm 18mm 20mm; }
+body { font-family: "Segoe UI", Helvetica, Arial, sans-serif; color: #1d2433; font-size: 10.5pt; line-height: 1.5; margin: 0; }
+h1 { font-size: 24pt; margin: 0; color: #14507a; }
+.sub { color: #556; margin: 2px 0 18px; }
+h2 { font-size: 13.5pt; color: #14507a; margin: 20px 0 6px; border-bottom: 1.5px solid #d7e2ef; padding-bottom: 3px; }
+h3 { font-size: 11pt; margin: 12px 0 4px; }
+p { margin: 5px 0; }
+ul, ol { margin: 4px 0 6px; padding-left: 22px; }
+li { margin: 3px 0; }
+.cols { display: flex; gap: 16px; }
+.cols > div { flex: 1; background: #f4f7fb; border-radius: 8px; padding: 8px 12px; }
+.cols h3 { margin-top: 2px; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+td, th { border: 1px solid #c9d5e3; padding: 5px 8px; vertical-align: top; text-align: left; }
+th { background: #eef3f9; }
+.note { background: #fff6e5; border-left: 4px solid #d08a00; padding: 6px 10px; margin: 10px 0; }
+b.ui { font-weight: 600; }
+h2, h3 { break-after: avoid; }
+tr, .cols > div, .note, li { break-inside: avoid; }
+</style></head><body>
+
+<h1>Thaana PDF to Word</h1>
+<p class="sub">User manual &middot; version 0.4 (beta) &middot; free for teachers</p>
+
+<h2>1. What this app does</h2>
+<p>When you copy Dhivehi text out of some PDFs and paste it into Word, the letters come out scrambled: fili are in the wrong place and words are broken. This app fixes that. It reads the PDF itself, puts each word back in the right order, and gives you clean text or a ready-made Word file.</p>
+<ul>
+<li><b>Typed PDFs</b> (made in Word and similar): fast and exact. This is what the app does best.</li>
+<li><b>Scans and photos</b> of printed pages: the app reads the page as a picture, about one page a second. Most pages still have some wrong or missing fili, so always check the result.</li>
+<li><b>Handwriting:</b> not supported yet.</li>
+</ul>
+<p>Everything happens on your own computer. Nothing is uploaded and no internet is needed.</p>
+
+<h2>2. Installing</h2>
+<div class="cols">
+<div><h3>Windows</h3><ol>
+<li>Download <b>Thaana PDF to Word_…_x64-setup.exe</b> (about 10 MB).</li>
+<li>Double-click it and follow the steps. The app appears in the Start menu.</li>
+<li>If Windows shows "Windows protected your PC", click <b class="ui">More info</b>, then <b class="ui">Run anyway</b>.</li>
+</ol></div>
+<div><h3>Mac</h3><ol>
+<li>Download the <b>.dmg</b> for your Mac: <b>aarch64</b> for Apple-chip Macs (M1 and later), <b>x64</b> for Intel Macs.</li>
+<li>Open it and drag the app into Applications.</li>
+<li>The first time, macOS blocks it. Open <b class="ui">System Settings &rarr; Privacy &amp; Security</b>, scroll down and click <b class="ui">Open Anyway</b>.</li>
+</ol></div>
+</div>
+<p>The app is free and not "signed" by Apple or Microsoft, which costs money. The warning on first launch is normal.</p>
+
+<h2>3. Converting a typed PDF</h2>
+<ol>
+<li>Click <b class="ui">Open scans / PDFs…</b>, or drag the PDF into the window.</li>
+<li>The text appears on the right straight away. There is no reading step.</li>
+<li>Look through it. Titles, paragraphs, numbered lists and tables should be in order.</li>
+<li>Click <b class="ui">Copy all</b> and paste into Word with Ctrl+V (Windows) or &#8984;+V (Mac), or click <b class="ui">Save as Word</b>.</li>
+</ol>
+<p><b class="ui">Save as Word</b> makes a right-to-left, justified document in Faruma (or the font you choose in the box). Tables in the PDF become real Word tables, with each cell's text kept together. Faruma must be installed on the computer that opens the file; otherwise Word shows another font.</p>
+<p>If a PDF has some scanned pages among typed ones, the app tells you, and you read those pages with <b class="ui">Read text</b>.</p>
+
+<h2>4. Reading scans and photos</h2>
+<ol>
+<li>Open the scan or photo (PNG, JPEG, TIFF, BMP, WebP or GIF), a scanned PDF, or paste a screenshot with Ctrl/&#8984;+V.</li>
+<li>Click <b class="ui">Read text</b> and wait. A page takes about a second; the first page takes a few seconds longer while the reader starts.</li>
+<li>Check the text carefully. Most mistakes are one wrong or missing fili.</li>
+</ol>
+<h3>For best results</h3>
+<ul>
+<li>Scan at 200&ndash;300 dpi. Phone photos work if the page is flat, well lit and fills the frame.</li>
+<li>Use the <b>&#10227;</b> button on a page if the picture is sideways.</li>
+<li>Tick <b class="ui">Page also has English text</b> only when a page mixes English and Dhivehi.</li>
+<li>Untick <b class="ui">Join lines into paragraphs</b> to keep the original line breaks, which suits lists and exam questions.</li>
+<li><b class="ui">Newspaper / magazine columns</b> (ticked by default) reads pages that have real side-by-side columns column by column, right to left. Ordinary pages are read normally either way, so you can leave it ticked.</li>
+</ul>
+
+<h2>5. If something looks wrong</h2>
+<table>
+<tr><th style="width:34%">Problem</th><th>What to try</th></tr>
+<tr><td>Text is garbled after opening a PDF</td><td>The PDF may use an old non-Unicode font. The app then reads its pages as pictures, which is less accurate. Check the result carefully, or ask for a typed copy of the file.</td></tr>
+<tr><td>A password-protected PDF shows no page pictures</td><td>Its typed text still comes out, but its pages can't be shown or read as pictures. Ask for a copy without a password.</td></tr>
+<tr><td>Sideways or upside-down scan</td><td>Use the &#10227; button, then click <b class="ui">Read text</b> again.</td></tr>
+<tr><td>A multi-column page reads in the wrong order</td><td>Untick <b class="ui">Newspaper / magazine columns</b> and try again, or the other way round.</td></tr>
+<tr><td>In a table without borders, long cells are split over several rows</td><td>Known limit: join the rows by hand in Word. Tables with borders are not affected.</td></tr>
+<tr><td>The Word file shows a different font</td><td>Install Faruma (or the font you picked) on that computer.</td></tr>
+<tr><td>Windows or Mac refuses to open the app</td><td>See section 2. It is a first-launch warning, not a virus.</td></tr>
+</table>
+<p class="note"><b>Always read the result before you use it.</b> Typed PDFs are very reliable, but scans can have wrong or missing fili. Do not send exam papers or official documents without checking.</p>
+
+<h2>6. Privacy</h2>
+<p>Your files never leave your computer. The app does not need the internet and does not collect any information.</p>
+
+<h2>7. Getting help and giving feedback</h2>
+<p>If a PDF converts badly, send the file (only if it is safe to share) with a short note about what went wrong to the person who gave you this app, or open an issue on the project's GitHub page. Real examples are the best way to make it better.</p>
+</body></html>

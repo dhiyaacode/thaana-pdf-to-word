@@ -1,19 +1,27 @@
 # Thaana PDF to Word
 
-A free desktop app for teachers and anyone who works with Dhivehi. It turns **Dhivehi (Thaana) PDFs** into clean text you can paste into Word, or into a ready-made **.docx** file, without the scrambled letters and misplaced fili.
+A free desktop app for teachers and anyone who works with Dhivehi. It turns **Dhivehi (Thaana) PDFs** into clean text you can paste into Word, or into a ready-made **.docx** file, without the scrambled letters and misplaced fili. It can also read **scans and photos** of printed Dhivehi pages.
 
-Works on **Windows** and **Mac** (Intel and Apple chip). Everything runs on your own computer. Nothing is uploaded.
+Works on **Windows** and **Mac** (Intel and Apple chip). Everything runs on your own computer. Nothing is uploaded, and no internet is needed.
 
-> **Beta (v0.3).** Typed PDFs are the strong part. Reading scans, photos and newspapers is experimental and still improving. Handwriting is not supported yet.
+> **Beta (v0.4).** Typed PDFs are the strong part: their text comes out exactly. Reading scans and photos works, but always check the result. Handwriting is not supported yet.
+
+## What's new
+- **A new, much smaller app.** It is now a Rust program: the Windows installer is about 10 MB instead of about 120 MB.
+- **Faster.** PDFs open almost instantly (a 14-page scan with all its page pictures in under half a second), and scans are read about twice as fast as before.
+- **Reads scans far better.** On a clean printed page it now gets about 94% of the letters and half of the words exactly right, up from about 60% and 12%. Most remaining mistakes are a wrong or missing fili.
+- **Tables:** a sentence that wraps inside a table cell now stays in that cell, so tables with borders come out right in Word.
+- **Fewer lost letters:** the last fili of words in justified text, Dhivehi commas (،) and Arabic words inside Dhivehi sentences (such as ﷲ) are no longer dropped.
+- **More picture types:** PNG, JPEG, TIFF, BMP, WebP and GIF.
 
 ## What it does
 - **PDFs with typed text (made in Word and similar):** the app takes the letters straight out of the PDF and rebuilds each word in the right order, so copy-and-paste gives real Dhivehi. Tables become Word tables. Numbered lists stay lists.
 - **Save as Word:** right-to-left, justified, in Faruma or the font you pick.
-- **Scans and photos (experimental):** use *Read text*. Newspaper and magazine pages with real columns are read column by column, right to left.
+- **Scans and photos:** use *Read text*. Newspaper and magazine pages with real side-by-side columns are read column by column, right to left.
 
 ## Download
 Go to the **Releases** page and download the file for your computer:
-- **Windows:** the `…x64-setup.exe` installer (about 9 MB). It needs WebView2, which Windows 10 and 11 already have.
+- **Windows:** the `…x64-setup.exe` installer (about 10 MB). Run it. It needs WebView2, which Windows 10 and 11 already have.
 - **Mac:** the `.dmg` marked `aarch64` for Apple-chip Macs (M1 and later) or `x64` for Intel Macs. Open it and drag the app to Applications.
 
 The app is not code-signed, so your computer will warn you the first time. This is normal for free apps.
@@ -21,16 +29,17 @@ The app is not code-signed, so your computer will warn you the first time. This 
 - **Mac:** the first time, go to **System Settings ▸ Privacy & Security** and click **Open Anyway**.
 
 ## Using it
-See the **User Manual** in the `docs` folder (`docs/Thaana-PDF-to-Word-User-Manual.pdf`). In short:
-1. **Open scans / PDFs…** (or drag files in).
-2. For scans, click **Read text**. Typed PDFs appear straight away.
+See the **User Manual** (`docs/Thaana-PDF-to-Word-User-Manual.pdf`). In short:
+1. **Open scans / PDFs…** (or drag files in, or paste a screenshot).
+2. Typed PDFs appear straight away. For scans and photos, click **Read text**: a page takes about a second.
 3. Check the text, then **Copy all** or **Save as Word**.
 
 ## Known limits
-- Very old PDFs whose text was stored in legacy (non-Unicode) fonts can't be read directly and fall back to the weaker scan reader.
+- Very old PDFs whose text was stored in legacy (non-Unicode) fonts can't be read directly: their pages are read as pictures instead, which is less accurate.
+- Password-protected PDFs: their typed text comes out, but their pages can't be shown or read as pictures.
 - Tables with borders are rebuilt cell by cell. In tables without borders, a cell that wraps onto a second line is joined back only when the first (right-hand) column of that row does not wrap too.
 - With *Ignore Arabic text* on, lines that are mostly Arabic (verses, prayers) are left out. Arabic words inside a Dhivehi sentence are kept, without their vowel marks.
-- Scan reading with the standard Dhivehi model gets about 93% of characters and under half of the words exactly right on a clean page (`npm run bench:ocr`). A better model is the way to improve on that.
+- Scans: about 94% of the letters and half of the words come out exactly right on a clean page (measured with `npm run bench:ocr`), less on poor copies. A better reading model is the way to improve on that.
 - Always read through the result before using it for anything important.
 
 ## How it is built
@@ -52,6 +61,8 @@ You need Node.js (LTS) and Rust (https://rustup.rs). Then, in this folder:
 - `npm install`
 - `npm start` to run the app
 - `npm run build` to build it. The Windows installer ends up in `src-tauri/target/release/bundle/nsis/`.
+
+The user manual PDF is printed from `docs/manual.html`: after editing it, run `node scripts/manual.mjs` (needs Microsoft Edge or Google Chrome).
 
 Mac builds are made by GitHub Actions (`.github/workflows/build-app.yml`): run it from the Actions tab, or push a `v…` tag. It builds Windows and both kinds of Mac and puts them on a draft release.
 

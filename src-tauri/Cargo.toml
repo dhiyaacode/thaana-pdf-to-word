@@ -1,6 +1,6 @@
 [package]
 name = "thaana-pdf-to-word"
-version = "0.3.0"
+version = "0.4.0"
 description = "Turn Dhivehi (Thaana) PDFs and scans into editable text and Word files."
 license = "Apache-2.0"
 edition = "2021"
